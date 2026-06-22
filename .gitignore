@@ -1,0 +1,19 @@
+# Debug logs from browser automation (Playwright MCP) — not part of the project
+.playwright-mcp/
+
+# Blender auto-backups
+*.blend1
+
+# The original Tesseract game lives in its OWN repo (linked from hardware.html):
+#   https://github.com/janpieterbaalder/tesseract-4d-rubiks-cube
+#   live: https://janpieterbaalder.github.io/tesseract-4d-rubiks-cube/
+code 4d rubiks spel/
+
+# Throwaway working render
+4d rubiks 3d model/blender_renders/current_state.png
+
+# Python / OS cruft
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db

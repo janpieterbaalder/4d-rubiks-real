@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "author": "4D Rubiks rig",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-arduino-mega", "id": "mega", "top": 0, "left": 0, "attrs": {} },
+
+    { "type": "wokwi-led-strip", "id": "strip", "top": -300, "left": -360,
+      "attrs": { "pixels": "189", "pixelShape": "square", "pixelSize": "2020" } },
+    { "type": "wokwi-resistor", "id": "r1", "top": -60, "left": 120,
+      "attrs": { "value": "330" } },
+
+    { "type": "board-ssd1306", "id": "oled", "top": -180, "left": 360, "attrs": { "i2cAddress": "0x3c" } },
+
+    { "type": "wokwi-analog-joystick", "id": "joyA", "top": 270, "left": -300, "attrs": {} },
+    { "type": "wokwi-analog-joystick", "id": "joyB", "top": 270, "left": -60,  "attrs": {} },
+    { "type": "wokwi-analog-joystick", "id": "joyC", "top": 270, "left": 180,  "attrs": {} },
+
+    { "type": "wokwi-pushbutton", "id": "btnScr", "top": 340, "left": 430,
+      "attrs": { "color": "green", "label": "husselen" } },
+    { "type": "wokwi-pushbutton", "id": "btnRst", "top": 440, "left": 430,
+      "attrs": { "color": "red", "label": "reset" } }
+  ],
+  "connections": [
+    [ "mega:6",  "r1:1",      "gold",  [] ],
+    [ "r1:2",    "strip:DIN", "gold",  [] ],
+    [ "mega:5V", "strip:VDD", "red",   [] ],
+    [ "mega:GND.3", "strip:VSS", "black", [] ],
+
+    [ "mega:5V",    "oled:VCC", "red",   [] ],
+    [ "mega:GND.2", "oled:GND", "black", [] ],
+    [ "mega:20",    "oled:SDA", "green", [] ],
+    [ "mega:21",    "oled:SCL", "green", [] ],
+
+    [ "mega:5V",    "joyA:VCC",  "red",   [] ],
+    [ "mega:GND.1", "joyA:GND",  "black", [] ],
+    [ "mega:A0",    "joyA:HORZ", "#36c7ff", [] ],
+    [ "mega:A1",    "joyA:VERT", "#36c7ff", [] ],
+    [ "mega:22",    "joyA:SEL",  "#c77bff", [] ],
+
+    [ "mega:5V",    "joyB:VCC",  "red",   [] ],
+    [ "mega:GND.1", "joyB:GND",  "black", [] ],
+    [ "mega:A3",    "joyB:HORZ", "#36c7ff", [] ],
+    [ "mega:A2",    "joyB:VERT", "#36c7ff", [] ],
+    [ "mega:23",    "joyB:SEL",  "#c77bff", [] ],
+
+    [ "mega:5V",    "joyC:VCC",  "red",   [] ],
+    [ "mega:GND.2", "joyC:GND",  "black", [] ],
+    [ "mega:A5",    "joyC:HORZ", "#36c7ff", [] ],
+    [ "mega:A4",    "joyC:VERT", "#36c7ff", [] ],
+    [ "mega:24",    "joyC:SEL",  "#c77bff", [] ],
+
+    [ "mega:26",    "btnScr:1.l", "#57e08a", [] ],
+    [ "mega:GND.3", "btnScr:2.r", "black",  [] ],
+    [ "mega:28",    "btnRst:1.l", "#57e08a", [] ],
+    [ "mega:GND.3", "btnRst:2.r", "black",  [] ]
+  ],
+  "dependencies": {}
+}

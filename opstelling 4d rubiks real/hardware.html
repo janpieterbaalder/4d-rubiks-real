@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hardware-werkbank — Opstelling 4D Rubiks</title>
+<style>
+  :root {
+    --bg: #0e1320; --panel: #161d2e; --panel2: #1f2940;
+    --ink: #e7ecf6; --dim: #8a96ad; --line: #2a3550;
+    --accent: #ffd23d; --ok: #00c596;
+    --w-pwr: #ff5a4d; --w-gnd: #9aa6bf; --w-data: #ffd23d;
+    --w-sig: #36c7ff; --w-i2c: #57e08a; --w-btn: #c77bff;
+    --c-xy: #2fd07a; --c-yz: #c45cff; --c-xz: #ff9e2c; --c-extra: #ffe03d; --c-dir: #ff5340;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+    font: 14px/1.45 system-ui, "Segoe UI", sans-serif; overflow: hidden; }
+  #scene { position: fixed; inset: 0; display: block; }
+
+  /* ---- top tab bar ---- */
+  #top { position: fixed; top: 0; left: 0; right: 0; display: flex; gap: 10px;
+    align-items: center; padding: 10px 16px; pointer-events: none; z-index: 30; flex-wrap: wrap; }
+  #top .pill, #top a.tab { pointer-events: auto; background: rgba(22,29,46,.82);
+    border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px;
+    backdrop-filter: blur(6px); color: var(--ink); text-decoration: none; }
+  #top a.tab.active { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  #top a.tab:hover { border-color: var(--accent); }
+  #title { font-weight: 700; letter-spacing: .3px; }
+  #title small { color: var(--dim); font-weight: 400; }
+  #power-state b { color: var(--ok); }
+  #power-state.off b { color: #ff5340; }
+  #sel-pill b { color: var(--accent); }
+  #moves-pill b { color: var(--ink); }
+
+  /* ---- left: component menu ---- */
+  #menu { display: flex; flex-direction: column; gap: 5px; }
+  #menu .grp { color: var(--dim); font-size: 10px; text-transform: uppercase;
+    letter-spacing: 1px; margin: 8px 2px 2px; }
+  #menu button { display: flex; align-items: center; gap: 8px; background: var(--panel);
+    color: var(--ink); border: 1px solid var(--line); border-radius: 9px;
+    padding: 7px 9px; cursor: pointer; text-align: left; font-size: 12.5px; width: 100%; }
+  #menu button:hover { border-color: var(--accent); }
+  #menu button.sel { border-color: var(--accent); background: var(--panel2); }
+  #menu button .dot { width: 10px; height: 10px; border-radius: 50%; flex: none;
+    box-shadow: 0 0 6px rgba(255,255,255,.25); }
+
+  /* ---- right: info panel ---- */
+  #info { position: fixed; left: 222px; top: 58px; width: 320px; z-index: 20;
+    background: rgba(20,27,43,.94); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 16px; max-height: calc(100vh - 330px); overflow: auto;
+    backdrop-filter: blur(8px); box-shadow: 0 10px 40px rgba(0,0,0,.45); }
+  #info.hidden { display: none; }
+  #info h2 { margin: 0 0 2px; font-size: 17px; display: flex; align-items: center; gap: 9px; }
+  #info h2 .dot { width: 13px; height: 13px; border-radius: 50%; flex: none; }
+  #info .tag { color: var(--dim); font-size: 11.5px; margin: 0 0 10px; }
+  #info p { margin: 8px 0; font-size: 13px; }
+  #info h3 { margin: 14px 0 5px; font-size: 12px; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--accent); }
+  #info table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  #info td { padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  #info td.pin { color: var(--ink); font-family: ui-monospace, Consolas, monospace; white-space: nowrap; }
+  #info td.arrow { color: var(--dim); text-align: center; width: 18px; }
+  #info .swatch { display: inline-block; width: 9px; height: 9px; border-radius: 2px;
+    margin-right: 5px; vertical-align: middle; }
+  #info .note { background: #221a0c; border: 1px solid #4a3a14; border-radius: 8px;
+    padding: 8px 10px; font-size: 12px; color: #ffe6a6; margin-top: 10px; }
+  #info .note.warn { background: #2a1414; border-color: #5a2222; color: #ffb3a8; }
+  #info .close { position: absolute; right: 10px; top: 10px; cursor: pointer;
+    color: var(--dim); border: none; background: none; font-size: 18px; line-height: 1; }
+  #info .close:hover { color: var(--ink); }
+
+  /* ---- floating 3D labels ---- */
+  #labels { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+  #labels .lbl { position: absolute; transform: translate(-50%, -50%);
+    background: rgba(14,19,32,.78); border: 1px solid var(--line); color: var(--ink);
+    padding: 2px 8px; border-radius: 8px; font-size: 11.5px; white-space: nowrap;
+    pointer-events: auto; cursor: pointer; backdrop-filter: blur(3px); }
+  #labels .lbl:hover { border-color: var(--accent); }
+  #labels .lbl.sel { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  #labels .lbl .num { color: var(--accent); font-weight: 700; margin-right: 4px; }
+
+  #hint { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); text-align: center;
+    color: var(--dim); font-size: 11px; z-index: 15; pointer-events: none; max-width: 60vw; }
+
+  /* ---- left/right side panels (the bottom blocks moved to the sides) ---- */
+  .side { position: fixed; bottom: 14px; z-index: 21; display: flex; flex-direction: column;
+    gap: 8px; width: 196px; }
+  .side.left { left: 14px; align-items: stretch; }
+  .side.right { right: 14px; align-items: stretch; }
+  .side .card { background: rgba(22,29,46,.9); border: 1px solid var(--line); border-radius: 12px;
+    padding: 9px 10px; backdrop-filter: blur(6px); display: flex; flex-direction: column; gap: 6px; }
+  .side .card .hd { color: var(--dim); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+  .side button, .side label.tg { background: var(--panel2); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; cursor: pointer;
+    font-size: 12.5px; text-align: left; display: flex; gap: 7px; align-items: center; }
+  .side button:hover, .side label.tg:hover { border-color: var(--accent); }
+  .side label.tg.on { border-color: var(--ok); color: var(--ok); }
+  .side .leg { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--dim); }
+  .side .leg i { width: 16px; height: 4px; border-radius: 2px; display: inline-block; }
+  .side .howto { display: flex; flex-direction: column; gap: 5px; margin-bottom: 2px; }
+  .side .howto .row { font-size: 11px; line-height: 1.32; color: var(--dim); }
+  .side .howto .row b { color: var(--ink); }
+
+  /* ---- left accordion (collapsible sections) ---- */
+  #left { position: fixed; left: 14px; top: 58px; width: 196px; z-index: 20;
+    display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 72px); overflow-y: auto; }
+  .acc { background: rgba(22,29,46,.9); border: 1px solid var(--line); border-radius: 12px;
+    overflow: hidden; backdrop-filter: blur(6px); }
+  .acc > .acc-h { width: 100%; display: flex; align-items: center; cursor: pointer; font: inherit;
+    background: var(--panel); color: var(--ink); border: none; padding: 9px 11px;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+  .acc > .acc-h:hover { color: var(--accent); }
+  .acc > .acc-h .chev { margin-left: auto; color: var(--dim); transition: transform .15s; }
+  .acc.open > .acc-h .chev { transform: rotate(90deg); }
+  .acc > .acc-b { display: none; flex-direction: column; gap: 6px; padding: 8px 10px;
+    border-top: 1px solid var(--line); }
+  .acc.open > .acc-b { display: flex; }
+  .acc-b button, .acc-b label.tg { background: var(--panel2); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; cursor: pointer;
+    font-size: 12.5px; text-align: left; display: flex; gap: 7px; align-items: center; width: 100%; }
+  .acc-b button:hover, .acc-b label.tg:hover { border-color: var(--accent); }
+  .acc-b label.tg.on { border-color: var(--ok); color: var(--ok); }
+  .acc-b .leg { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--dim); }
+  .acc-b .leg i { width: 16px; height: 4px; border-radius: 2px; display: inline-block; }
+  .acc-b .howto { display: flex; flex-direction: column; gap: 5px; }
+  .acc-b .howto .row { font-size: 11px; line-height: 1.32; color: var(--dim); }
+  .acc-b .howto .row b { color: var(--ink); }
+
+  /* ============ the PS3 controller (replaces the joysticks + OLED) ============ */
+  #ps3 { position: fixed; right: 12px; top: 84px; z-index: 22; }
+  .ps3-body { background: linear-gradient(#202739, #0d1220); border: 1px solid var(--line);
+    border-radius: 26px; padding: 12px 22px 14px; box-shadow: 0 12px 44px rgba(0,0,0,.55);
+    display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  .ps3-row { display: flex; gap: 30px; align-items: center; justify-content: center; }
+  .ctrl-lbl { color: var(--dim); font-size: 9px; text-align: center; margin-top: 3px; letter-spacing: .3px; }
+  .ps3 button { cursor: pointer; color: var(--ink); border: 1px solid var(--line);
+    background: var(--panel2); font-family: inherit; }
+  .ps3 button:hover { border-color: var(--accent); }
+  .ps3 button:active { transform: scale(.94); }
+
+  /* d-pad (horizontal x,y movement) */
+  .dpad { position: relative; width: 90px; height: 90px; }
+  .db { position: absolute; width: 30px; height: 30px; font-size: 12px; color: var(--w-sig); }
+  .db.up { left: 30px; top: 0; border-radius: 7px 7px 0 0; }
+  .db.down { left: 30px; bottom: 0; border-radius: 0 0 7px 7px; }
+  .db.left { left: 0; top: 30px; border-radius: 7px 0 0 7px; }
+  .db.right { right: 0; top: 30px; border-radius: 0 7px 7px 0; }
+  .db.mid { left: 30px; top: 30px; border: none; background: #161d2e; pointer-events: none; }
+
+  /* analog sticks */
+  .astick { position: relative; width: 92px; height: 92px; border-radius: 50%;
+    background: radial-gradient(circle at 50% 38%, #2a3450, #121828); border: 1px solid var(--line); }
+  .adir { position: absolute; width: 26px; height: 26px; border-radius: 8px; font-size: 12px; background: transparent; }
+  .adir.rev { left: 4px; top: 33px; color: var(--c-dir); }
+  .adir.fwd { right: 4px; top: 33px; color: var(--c-dir); }
+  .adir.up { left: 33px; top: 4px; color: var(--w-sig); }
+  .adir.dn { left: 33px; bottom: 4px; color: var(--w-sig); }
+  .adir.on { background: rgba(255,83,64,.28); border-color: var(--c-dir); }
+  .acenter { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px;
+    border-radius: 50%; font-size: 10px; line-height: 1.05; }
+  .acenter.red { color: #ff8a7a; }
+  .acenter.blue { color: #7fb6ff; }
+
+  /* face buttons (rotation planes) — diamond */
+  .faces { display: grid; grid-template-columns: repeat(3, 38px); grid-template-rows: repeat(3, 38px); gap: 5px; }
+  .face { border-radius: 50%; font-size: 9px; line-height: 1.1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; border-width: 2px; }
+  .face b { font-size: 13px; }
+  .face.f-top { grid-area: 1 / 2; }
+  .face.f-left { grid-area: 2 / 1; }
+  .face.f-right { grid-area: 2 / 3; }
+  .face.f-bottom { grid-area: 3 / 2; }
+  .face.green { border-color: var(--c-xy); color: var(--c-xy); }
+  .face.magenta { border-color: var(--c-yz); color: var(--c-yz); }
+  .face.orange { border-color: var(--c-xz); color: var(--c-xz); }
+  .face.yellow { border-color: var(--c-extra); color: var(--c-extra); }
+  .face.armed { background: rgba(255,255,255,.16); box-shadow: 0 0 10px currentColor; }
+  .face.dis { opacity: .32; cursor: default; }
+
+  /* SELECT / START */
+  .sysbtns { display: flex; flex-direction: column; gap: 8px; }
+  .sys { border-radius: 999px; padding: 6px 12px; font-size: 10px; text-align: center; line-height: 1.1; }
+  .sys small { color: var(--dim); }
+</style>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+  <div id="labels"></div>
+
+  <div id="top">
+    <span class="pill" id="title">4D&nbsp;Rubiks <small>· hardware &amp; bedrading + speelbare game</small></span>
+    <a class="tab" href="https://janpieterbaalder.github.io/tesseract-4d-rubiks-cube/" target="_blank" rel="noopener">🎮 Online game ↗</a>
+    <span class="pill" id="power-state">Status: <b>AAN</b></span>
+    <span class="pill" id="sel-pill">Cel: <b id="sel-label">midden</b></span>
+    <span class="pill" id="moves-pill"><b id="moves-val">0</b>&nbsp;zetten · <span id="solved-val">opgelost ✔</span></span>
+  </div>
+
+  <!-- onderdelen-menu staat in het #left-accordeon hieronder -->
+
+  <aside id="info" class="hidden">
+    <button class="close" id="info-close">×</button>
+    <div id="info-body"></div>
+  </aside>
+
+  <div id="hint">Sleep = draaien · scrollwiel indrukken + slepen = verschuiven · scroll = zoomen · klik een <b>onderdeel</b> voor info · speel met de <b>controller</b> of toetsenbord (WASD/IK = bewegen, ←/→ + Z/X/C/V = draaien)</div>
+
+  <!-- LEFT: collapsible accordion (parts menu, view toggles, how-to, wire legend) -->
+  <aside id="left">
+    <div class="acc open" id="acc-parts">
+      <button class="acc-h">Onderdelen <span class="chev">▸</span></button>
+      <div class="acc-b"><div id="menu"></div></div>
+    </div>
+    <div class="acc" id="acc-view">
+      <button class="acc-h">Weergave <span class="chev">▸</span></button>
+      <div class="acc-b">
+        <label class="tg on" id="tg-flow">⚡ Stroom-animatie</label>
+        <label class="tg on" id="tg-labels">🏷 Labels</label>
+        <label class="tg" id="tg-chain">🧵 Led-draad</label>
+        <button id="btn-frame">📡 Stuur dataframe</button>
+        <button id="btn-reset-view">👁 Reset camera</button>
+      </div>
+    </div>
+    <div class="acc" id="acc-howto">
+      <button class="acc-h">Zo speel je <span class="chev">▸</span></button>
+      <div class="acc-b">
+        <div class="howto">
+          <div class="row"><b>Bewegen</b> — D-pad / WASD = grondvlak · R-stick / I·K = op/neer</div>
+          <div class="row"><b>Draaivlak</b> — face-knoppen of Z X C V</div>
+          <div class="row"><b>Draairichting</b> — L-stick ◄► of ← →</div>
+          <div class="row"><b>4D-rotatie</b> — ● L-stick of Enter</div>
+          <div class="row"><b>Zet terug</b> — ● R-stick of Backspace</div>
+          <div class="row"><b>Husselen / Reset</b> — SELECT·⇧S / START·⇧R</div>
+        </div>
+      </div>
+    </div>
+    <div class="acc" id="acc-wires">
+      <button class="acc-h">Draden <span class="chev">▸</span></button>
+      <div class="acc-b">
+        <span class="leg"><i style="background:var(--w-pwr)"></i> +5V</span>
+        <span class="leg"><i style="background:var(--w-gnd)"></i> GND (massa)</span>
+        <span class="leg"><i style="background:var(--w-data)"></i> Data → leds</span>
+        <span class="leg"><i style="background:var(--w-sig)"></i> SPI → shield</span>
+        <span class="leg"><i style="background:var(--w-i2c)"></i> USB-dongle</span>
+        <span class="leg"><i style="background:var(--w-btn)"></i> Bluetooth</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- RIGHT: game action buttons -->
+  <div class="side right" id="right-controls">
+    <div class="card">
+      <span class="hd">Acties</span>
+      <button id="btn-4dreset">🧭 Reset 4D-zicht</button>
+      <button id="btn-power">⏻ Aan / Uit</button>
+    </div>
+  </div>
+
+  <!-- BOTTOM CENTER: PS3 controller -->
+  <div id="ps3" class="ps3">
+    <div class="ps3-body">
+      <div class="ps3-row">
+        <!-- D-pad: horizontal movement (x,y) -->
+        <div>
+          <div class="dpad">
+            <button class="db up"    data-mv="N">▲</button>
+            <button class="db left"  data-mv="W">◀</button>
+            <button class="db mid"></button>
+            <button class="db right" data-mv="E">▶</button>
+            <button class="db down"  data-mv="S">▼</button>
+          </div>
+          <div class="ctrl-lbl">beweeg x,y · WASD</div>
+        </div>
+
+        <!-- SELECT / START -->
+        <div class="sysbtns">
+          <button class="sys" data-act="scramble">SELECT<br><small>husselen</small></button>
+          <button class="sys" data-act="reset">START<br><small>reset</small></button>
+        </div>
+
+        <!-- face buttons: rotation planes -->
+        <div>
+          <div class="faces">
+            <button class="face f-top yellow"  data-plane="grip"><b>V</b><span id="pl-grip">—</span></button>
+            <button class="face f-left green"   data-plane="0"><b>Z</b><span id="pl-0">XY</span></button>
+            <button class="face f-right orange" data-plane="2"><b>C</b><span id="pl-2">XZ</span></button>
+            <button class="face f-bottom magenta" data-plane="1"><b>X</b><span id="pl-1">YZ</span></button>
+          </div>
+          <div class="ctrl-lbl">vlak kiezen + richting</div>
+        </div>
+      </div>
+
+      <div class="ps3-row">
+        <!-- left stick: rotation direction + 4D -->
+        <div>
+          <div class="astick" id="lstick">
+            <button class="adir rev" data-dir="-1">◀</button>
+            <button class="acenter red" data-act="4d">●<br>4D</button>
+            <button class="adir fwd" data-dir="1">▶</button>
+          </div>
+          <div class="ctrl-lbl">draairichting ←/→ · ● = 4D (Enter)</div>
+        </div>
+
+        <!-- right stick: vertical movement + undo -->
+        <div>
+          <div class="astick" id="rstick">
+            <button class="adir up" data-mv="U">▲</button>
+            <button class="acenter blue" data-act="undo">●<br>undo</button>
+            <button class="adir dn" data-mv="D">▼</button>
+          </div>
+          <div class="ctrl-lbl">omhoog/omlaag I/K · ● = undo (⌫)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="hardware.js?v=4"></script>
+</body>
+</html>
