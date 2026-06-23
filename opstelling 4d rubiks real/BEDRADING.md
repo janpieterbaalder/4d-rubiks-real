@@ -269,7 +269,7 @@ oorspronkelijke "draai leek onzichtbaar"-bug; opgelost in `ORIENT`).
 |---|---|
 | `firmware/tesseract_rig.ino` | hoofdprogramma voor de **echte rig**: leds + **draadloze PS3-controller (PS3BT via USB Host Shield)** + draai-animatie. Spiegelt de bediening van `hardware.html`. |
 | `firmware/tesseract_engine.h` | de geporte 4D-engine (≈ `engine.js`) — de wiskunde + de led-soldeerkaart (`ORIENT` / `printWiringChart`) |
-| `firmware/wokwi/sketch.ino` | **Wokwi-logica-testbank** (3 joysticks + OLED): zelfde engine + leds, want Wokwi kan geen PS3-host simuleren |
+| `firmware/wokwi/sketch.ino` | **Wokwi-logica-testbank** (PS3-layout nagebootst: 2 sticks + D-pad + 4 face-knoppen + SELECT/START + OLED): zelfde engine + leds + besturingsmodel, want Wokwi kan geen PS3-host simuleren |
 
 **Libraries voor de rig** (Arduino IDE → Bibliotheken beheren): **FastLED** en **USB Host Shield
 Library 2.0** (`USB_Host_Shield_2.0`, met de `PS3BT`-klasse). `SPI` zit in de IDE. De Wokwi-testbank
@@ -278,8 +278,9 @@ gebruikt in plaats van de USB Host Shield ook **Adafruit SSD1306 + Adafruit GFX*
 > ✅ **Besturing geport naar `PS3BT`.** `tesseract_rig.ino` leest nu een draadloze PS3-controller via
 > de USB Host Shield, met dezelfde as-native navigatie en het arm-vlak-+-richting-model als de bench
 > (`hardware.html`). De OLED is vervallen (status gaat naar de Seriële Monitor; de 189 leds zíjn de
-> display). Wokwi kan geen USB-host/PS3 simuleren, dus daarvoor blijft de joystick+OLED-testbank
-> `firmware/wokwi/sketch.ino` bestaan — die deelt dezelfde `tesseract_engine.h`.
+> display). Wokwi kan geen USB-host/PS3 simuleren, dus daarvoor blijft de testbank
+> `firmware/wokwi/sketch.ino` bestaan — die **bootst dezelfde controller-layout na** met sticks +
+> knoppen en deelt dezelfde `tesseract_engine.h`, navigatie en draaimodel.
 
 **Uploaden:** kies bord *Arduino Mega 2560*, juiste poort, upload. Open de Seriële Monitor op
 **115200** baud voor de wiring-chart en meldingen.
@@ -289,17 +290,20 @@ gebruikt in plaats van de USB Host Shield ook **Adafruit SSD1306 + Adafruit GFX*
 browser, zodat je de logica en adressering test vóór je iets koopt. (Wokwi tekent geen
 3D-tesseract — daarvoor is `hardware.html`.)
 
-> ℹ️ **Wokwi kan geen echte USB-host/PS3-controller simuleren.** Daarom gebruikt de Wokwi-testbank
-> [`firmware/wokwi/sketch.ino`](firmware/wokwi/sketch.ino) de **3 joysticks + OLED** om de
-> spel-logica en led-adressering te testen — die deelt dezelfde `tesseract_engine.h` als de rig.
-> De échte PS3-besturing (`firmware/tesseract_rig.ino`) test je op de hardware zelf.
+> ℹ️ **Wokwi kan geen echte USB-host/PS3-controller simuleren.** Daarom bootst de Wokwi-testbank
+> [`firmware/wokwi/sketch.ino`](firmware/wokwi/sketch.ino) de **PS3-layout na met losse onderdelen**
+> (2 analoge sticks + D-pad + 4 face-knoppen + SELECT/START + OLED) om de spel-logica, led-adressering
+> én het besturingsmodel te testen — met dezelfde `tesseract_engine.h`, as-native navigatie en
+> "vlak + richting"-draaimodel als de rig. De échte PS3-besturing (`firmware/tesseract_rig.ino`)
+> test je op de hardware zelf.
 >
-> **▶ Al opgebouwd & opgeslagen:** https://wokwi.com/projects/467182062676747265 ("4d Rubiks
-> real") — open en klik op ▶, geen opnieuw bouwen nodig.
+> **▶ Opgeslagen project:** https://wokwi.com/projects/467182062676747265 ("4d Rubiks real") — let op:
+> dat is nog de oude 3-joystick/menu-build; plak de vernieuwde `sketch.ino` + `diagram.json` voor de
+> PS3-layout-besturing hierboven.
 >
 > **Kant-en-klaar (zelf bouwen):** in [`firmware/wokwi/`](firmware/wokwi/) staan `sketch.ino`
-> (joystick-build), een complete `diagram.json` (Mega + 3 joysticks + OLED + 2 knoppen + 330Ω +
-> een 189-pixel led-strip), een `libraries.txt`, een klikbare snelkoppeling
+> (PS3-layout-build), een complete `diagram.json` (Mega + 2 sticks + D-pad + 4 face-knoppen +
+> SELECT/START + OLED + 330Ω + een 189-pixel led-strip), een `libraries.txt`, een klikbare snelkoppeling
 > [`4d-rubiks-wokwi.url`](firmware/wokwi/4d-rubiks-wokwi.url) en een stap-voor-stap
 > [`README-wokwi.md`](firmware/wokwi/README-wokwi.md).
 

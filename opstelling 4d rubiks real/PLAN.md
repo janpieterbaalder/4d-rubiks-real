@@ -124,9 +124,17 @@ C voor look & fabricage. Begin met A.
       Wokwi.
 - [x] **LED-positie-consistentiecheck** (10 bronnen): de led-bedrading (idx→`ORIENT`→strip-index)
       is 1-op-1 gelijk overal (geverifieerd). Enige afwijking was het navigatie-coördinaatstelsel
-      (oud "JP-schema" in sim.js + firmware vs. as-native in hardware.js) — opgelost door de firmware
-      op het as-native schema te zetten. De Blender-`Tesseract_4D` is een getrouwe schil (kubussen
-      benoemd naar cel-sleutel, geen per-led-index).
+      (oud "JP-schema" vs. as-native in hardware.js) — opgelost door **zowel** de rig-firmware
+      `tesseract_rig.ino` **als** de Wokwi-testbank `firmware/wokwi/sketch.ino` op het as-native
+      schema te zetten. De Blender-`Tesseract_4D` is een getrouwe schil (kubussen benoemd naar
+      cel-sleutel, geen per-led-index).
+- [x] **Wokwi-testbank gelijkgetrokken met de rig** (`firmware/wokwi/sketch.ino` + `diagram.json`):
+      het oude 3-joystick/scroll-menu is vervangen door een nagebootste PS3-layout (2 sticks + D-pad
+      + 4 face-knoppen + SELECT/START), met as-native navigatie en het "vlak + richting"-draaimodel —
+      identiek aan de rig en `hardware.html`. Naamgeving F/B in `hardware.js` gelijkgetrokken
+      ("voor"/"achter"). `wokwi.toml` wijst nu naar de `sketch.ino`-build. Beide firmwares printen
+      `freeRam()` in `setup()` om de SRAM-marge op de Mega te bewaken (de PS3BT-rig is daar nog niet
+      fysiek op getest — overweeg ESP32 als de marge te krap blijkt).
 - [x] **Firmware geport naar PS3BT** (`tesseract_rig.ino`): draadloze PS3-controller via USB Host
       Shield; bediening spiegelt `hardware.html` (D-pad/sticks bewegen, face-knoppen = vlak, L-stick
       = richting/4D, R-stick = undo, SELECT/START = husselen/reset), arm-vlak-+-richting-model,

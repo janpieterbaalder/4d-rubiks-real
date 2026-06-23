@@ -52,6 +52,12 @@ plus bij randcellen een **180°-flip** en bij hoekcellen een **±120°-spin**. C
 alleen de 4D-rotatie. Een vlak "armeer" je met een face-knop en voer je uit met een richting (of
 andersom) — net als op de echte controller.
 
+> ℹ️ **Let op bij de grip (180°-flip / ±120°-spin):** je selecteert weliswaar een rand- of
+> hoek-cubie, maar de zet **roteert de hele cel** (alle 27 ledjes van die kubus) om de bijbehorende
+> ribbe- of lichaamsdiagonaal. Dat is geen los-blokje-draai maar een geldige celrotatie: ze ligt in
+> de 24-elementen rotatiegroep van de kubus (geverifieerd in `game/test/math.test.js`). De
+> geselecteerde cubie bepaalt enkel *welke* as.
+
 ### Oriëntatie: een getrouwe (niet-getaperde) kopie van de game
 Elke kubus staat **exact georiënteerd zoals de game de bijbehorende cel projecteert**
 (`engine.ORIENT`, afgeleid uit de 4D→3D-`project()` en in `engine.test.js` gecontroleerd
