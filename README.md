@@ -6,8 +6,11 @@ draadloze **PS3-controller** (USB Host Shield + PS3BT). Niets beweegt mechanisch
 verschuift alleen de **kleuren** van de ledjes (de cellen permuteren wiskundig), en je leest de
 draai af aan een heldere golf die in de draairichting langs de ledjes loopt.
 
+> **▶ Live 3D-omgeving:** **https://janpieterbaalder.github.io/4d-rubiks-real/** — de volledige
+> interactieve werkbank + speelbare twin draait in je browser (geen installatie nodig).
+>
 > **Speel de originele 4D-game online:** https://janpieterbaalder.github.io/tesseract-4d-rubiks-cube/
-> — ook bereikbaar via de tab **🎮 Online game** in de 3D-werkbank hieronder.
+> — ook bereikbaar via de tab **🎮 Online game** in de 3D-werkbank.
 
 ## Wat zit erin
 
