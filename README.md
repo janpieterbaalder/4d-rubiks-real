@@ -1,10 +1,11 @@
 # 4D Rubiks — echte LED-installatie
 
 Een fysieke **4D-rubikskubus** als licht-installatie: **189 WS2812B-leds** in 7 doorschijnende
-kubussen (midden + 6 armen, elk 3×3×3 = 27 leds), aangestuurd door een Arduino Mega met een
-draadloze **PS3-controller** (USB Host Shield + PS3BT). Niets beweegt mechanisch — een "draai"
-verschuift alleen de **kleuren** van de ledjes (de cellen permuteren wiskundig), en je leest de
-draai af aan een heldere golf die in de draairichting langs de ledjes loopt.
+kubussen (midden + 6 armen, elk 3×3×3 = 27 leds), aangestuurd door een **ESP32** met een draadloze
+**controller** via de ingebouwde Bluetooth (**Bluepad32**) — een Arduino Mega + PS3BT is het
+alternatief. Niets beweegt mechanisch — een "draai" verschuift alleen de **kleuren** van de ledjes
+(de cellen permuteren wiskundig), en je leest de draai af aan een heldere golf die in de
+draairichting langs de ledjes loopt.
 
 > **▶ Live 3D-omgeving:** **https://janpieterbaalder.github.io/4d-rubiks-real/** — de volledige
 > interactieve werkbank + speelbare twin draait in je browser (geen installatie nodig).

@@ -3,13 +3,14 @@
    ----------------------------------------------------------------------------
    TWO functions cooperate in the same 3D world, so this is a true simulation of
    the installation:
-     1. HARDWARE — the real electronics: Arduino Mega, 5V supply, a USB Host Shield
-        carrying a Bluetooth dongle + wireless PS3 controller, resistor + capacitor,
-        on/off switch and the 189-WS2812B led rig.
+     1. HARDWARE — the real electronics: an ESP32 (built-in Bluetooth), a 5V supply, a
+        3.3V->5V level shifter on the data line, a wireless game controller (PS4/PS5/Xbox/
+        8BitDo/Switch Pro, or a DS3), resistor + capacitor, on/off switch and the
+        189-WS2812B led rig.
         Click any part for an info panel + exact wiring (one CONNECTIONS table is
         the single source of truth and matches BEDRADING.md).
      2. SOFTWARE — the actual 4D-Rubiks game runs on those same led meshes. Drive
-        it with the on-screen PS3 controller (or click a cell / use the keyboard); the
+        it with the on-screen controller (or click a cell / use the keyboard); the
         ledjes inside the translucent white cells RECOLOUR correctly on every turn
         via the verified engine + the permutation-wave animation (1:1 with WS2812).
 
@@ -25,10 +26,8 @@ import { Tesseract, COLORS, CELL_LABEL, AXN, ORIENT } from './engine.js?v=4';
 const WIRE = {
   pwr: { color: 0xff5a4d, label: '+5V (stroom +)' },
   gnd: { color: 0x9aa6bf, label: 'GND (massa / −)' },
-  data:{ color: 0xffd23d, label: 'Data → leds' },
-  spi: { color: 0x36c7ff, label: 'SPI / INT / SS (shield ↔ Mega)' },
-  usb: { color: 0x57e08a, label: 'USB (dongle in de shield)' },
-  bt:  { color: 0xc77bff, label: 'Bluetooth (draadloos)' },
+  data:{ color: 0xffd23d, label: 'Data → leds (via levelshifter)' },
+  bt:  { color: 0xc77bff, label: 'Bluetooth (draadloos, ingebouwd)' },
 };
 
 /* ============================================================================
@@ -36,31 +35,28 @@ const WIRE = {
    Each row: [ fromPart, fromTerminal, toPart, toTerminal, category, note ]
    ========================================================================== */
 const CONNECTIONS = [
-  // --- power backbone: PSU -> switch -> (Mega logic + led rig) ---
+  // --- power backbone: PSU -> switch -> (ESP32 + led rig) ---
   ['psu','+5V', 'sw','in',     'pwr', 'voeding naar aan/uit-schakelaar'],
-  ['sw','out',  'mega','5Vin', 'pwr', '5V naar de Arduino (logica)'],
+  ['sw','out',  'esp','5Vin',  'pwr', '5V naar de ESP32 (via de 5V/VIN-pin)'],
   ['sw','out',  'rig','5V',    'pwr', '5V naar de leds — dikke draad!'],
-  ['psu','GND', 'mega','GNDin','gnd', 'gemeenschappelijke massa'],
+  ['psu','GND', 'esp','GNDin', 'gnd', 'gemeenschappelijke massa'],
   ['psu','GND', 'rig','GND',   'gnd', 'massa naar de leds — dikke draad!'],
 
-  // --- data line: Mega D6 -> 330Ω -> first led ---
-  ['mega','D6', 'res','in',  'data', 'datapin'],
+  // --- data line: ESP32 GPIO13 (3,3V) -> levelshifter -> 330Ω -> first led (5V) ---
+  ['esp','D13', 'lvl','in',  'data', '3,3V data van de ESP32 (GPIO13)'],
+  ['lvl','out', 'res','in',  'data', '5V data uit de levelshifter'],
   ['res','out', 'rig','DIN', 'data', '330Ω vlak vóór de eerste led'],
+
+  // --- level shifter power (shared GND is essential) ---
+  ['sw','out',  'lvl','VCC', 'pwr', 'levelshifter op 5V (zet OE van het kanaal aan GND — zie info)'],
+  ['psu','GND', 'lvl','GND', 'gnd', 'gedeelde massa — anders is de 5V-uitgang ongeldig'],
 
   // --- decoupling capacitor across the led rail near DIN ---
   ['cap','+',   'rig','5V',  'pwr', '1000µF buffer (+ op 5V)'],
   ['cap','-',   'rig','GND', 'gnd', '1000µF buffer (− op GND)'],
 
-  // --- USB Host Shield: stacks on the Mega (SPI via ICSP + INT/SS + power) ---
-  ['mega','5Vout','ush','5V', 'pwr','shield klikt op de Mega (stapelheaders)'],
-  ['mega','GND',  'ush','GND','gnd',''],
-  ['mega','SPI',  'ush','SPI','spi','SPI via ICSP-header: MISO 50 · MOSI 51 · SCK 52'],
-  ['mega','D9',   'ush','INT','spi','INT — interrupt van de MAX3421E'],
-  ['mega','D10',  'ush','SS', 'spi','SS — slave-select (SPI)'],
-
-  // --- Bluetooth: dongle in the shield's USB port, controller over the air ---
-  ['ush','USB',    'dongle','USB','usb','USB-Bluetooth-dongle in de USB-A-poort'],
-  ['dongle','BT',  'ps3','BT',    'bt', 'Bluetooth (HID) — draadloos, koppelen via PS3BT'],
+  // --- Bluetooth: the controller talks straight to the ESP32's built-in radio ---
+  ['esp','BT',  'ps3','BT',  'bt', 'Bluetooth (HID) — ingebouwd in de ESP32 (Bluepad32), geen dongle'],
 
   // --- power injection: feed 5V/GND straight from the PSU into far cubes ---
   ['sw','out',  'rig','INJ_R','pwr','power-injectie rechter arm'],
@@ -76,16 +72,19 @@ const CONNECTIONS = [
    CONNECTIONS, so it can never drift from the wires you see in 3D.
    ========================================================================== */
 const INFO = {
-  mega: {
-    name: 'Arduino Mega 2560', tag: 'De microcontroller — het brein', color: '#11998e',
-    html: `<p><b>Wat:</b> een microcontroller-bordje dat het hele spel uitrekent en alles
-      aanstuurt. Het draait jouw firmware (de C++-versie van de engine), leest de 3 joysticks,
-      schrijft naar het scherm en stuurt de 189 leds aan.</p>
-      <p><b>Waarom de Mega</b> en niet een Uno? De Mega heeft genoeg geheugen (8 KB RAM — de
-      puzzel kost ~2 KB) én <b>16 analoge pinnen</b> (je hebt er 6 nodig voor de joysticks) én
-      werkt op <b>5V-logica</b>. Dat laatste is goud waard: de WS2812-leds willen een 5V-
-      datasignaal, dus de Mega stuurt ze <b>rechtstreeks</b> aan — <u>geen levelshifter nodig</u>.</p>`,
-    notes: [['','Alternatief: een ESP32 is sneller en compacter, maar werkt op 3,3V. Dan heb je wél een levelshifter op de datalijn nodig (zie BEDRADING.md).']],
+  esp: {
+    name: 'ESP32 (met Bluepad32)', tag: 'De microcontroller — het brein', color: '#11998e',
+    html: `<p><b>Wat:</b> een ESP32-bordje dat het hele spel uitrekent en alles aanstuurt. Het draait
+      jouw firmware (de C++-versie van de engine), luistert via zijn <b>ingebouwde Bluetooth</b> naar
+      een draadloze controller en stuurt de 189 leds aan.</p>
+      <p><b>Waarom de ESP32?</b> Hij heeft <b>~320 KB vrij RAM</b> (zeeën van ruimte t.o.v. de 8 KB
+      van een Arduino Mega), draait op <b>240 MHz</b> en heeft <b>Bluetooth ingebouwd</b> — dus géén
+      USB Host Shield of dongle nodig (met de <b>Bluepad32</b>-bibliotheek). De WS2812-leds worden via
+      de <b>RMT-hardware</b> aangestuurd, zodat het verversen van de leds de Bluetooth niet blokkeert.</p>
+      <p><b>Let op:</b> de ESP32 werkt op <b>3,3V-logica</b>. De WS2812 willen een 5V-datasignaal, dus
+      zit er een <b>levelshifter</b> tussen de datapin (<b>GPIO13</b>) en de eerste led.</p>`,
+    notes: [['','Voed de ESP32 via zijn 5V/VIN-pin (de onboard-regelaar maakt er 3,3V van) — nooit 5V rechtstreeks op de 3V3-pin.'],
+      ['','Alternatief (5V-only): een Arduino Mega + USB Host Shield + PS3BT. Dan geen levelshifter nodig, maar wél krap geheugen — zie BEDRADING.md.']],
   },
   psu: {
     name: '5V voeding (≈10A)', tag: 'Aparte stroombron voor de leds', color: '#ff5a4d',
@@ -125,38 +124,27 @@ const INFO = {
       GND, de andere naar +5V. Verkeerd om kan hij klappen.</p>`,
     notes: [['warn','Elco\'s zijn gepolariseerd: − (streep) naar massa, + naar 5V.']],
   },
-  ush: {
-    name: 'USB Host Shield 2.0', tag: 'MAX3421E — maakt de Mega een USB-host', color: '#36c7ff',
-    html: `<p><b>Wat:</b> een shield dat boven op de Mega klikt en de <b>MAX3421E</b>-chip bevat.
-      Daarmee wordt de Arduino zélf een <b>USB-host</b> (hij stuurt nu een USB-apparaat aan in
-      plaats van alleen geprogrammeerd te worden). Hier draagt hij de <b>Bluetooth-dongle</b>
-      waarmee de draadloze PS3-controller praat.</p>
-      <p><b>Aansluiting:</b> de shield stapelt op de Mega en gebruikt <b>SPI</b> (via de
-      ICSP-header: MISO&nbsp;50 · MOSI&nbsp;51 · SCK&nbsp;52), plus <b>INT op D9</b> en
-      <b>SS op D10</b>. Hij deelt 5V en GND met de Mega. De led-datapin <b>D6</b> en de
-      stroomlijnen blijven vrij — geen conflict.</p>`,
-    notes: [['warn','Timing: FastLED zet bij elke frame ~6 ms de interrupts uit (189 leds). Roep in de firmware tussen frames Usb.Task() aan en houd de refresh-rate laag, anders mist Bluetooth HID-rapporten.'],
-      ['','Kies een shield die SPI via de ICSP-header voert — alléén dan werkt hij op de Mega (de oude Uno-layout met 11/12/13 niet).']],
-  },
-  dongle: {
-    name: 'USB-Bluetooth-dongle', tag: 'Draadloze brug naar de controller', color: '#57e08a',
-    html: `<p><b>Wat:</b> een kleine USB-Bluetooth-stick in de USB-A-poort van de shield.
-      Hierover verbindt de PS3-controller draadloos (HID). Een <b>CSR-gebaseerde</b> dongle werkt
-      het betrouwbaarst met de USB-Host-Shield-bibliotheek (klasse <code>PS3BT</code>).</p>
-      <p><b>Eénmalig koppelen:</b> sluit de controller eerst met een USB-kabel aan en draai het
-      <code>SetBdaddr</code>-hulpsketch — dat schrijft het Bluetooth-adres van de dongle in de
-      controller. Daarna verbindt hij draadloos zodra je op de PS-knop drukt.</p>`,
-    notes: [['','Bedraad blijft je terugval: zonder dongle werkt dezelfde controller via de klasse PS3USB rechtstreeks in de shield.']],
+  lvl: {
+    name: 'Levelshifter (3,3V→5V)', tag: '74AHCT125 — tilt de datalijn naar 5V', color: '#36c7ff',
+    html: `<p><b>Wat:</b> een klein bordje dat het <b>3,3V-datasignaal</b> van de ESP32 omzet naar een
+      nette <b>5V</b>, want dat willen de WS2812-leds zien als een "1". Een <b>74AHCT125</b> (of
+      74HCT245) is ideaal: hij accepteert 3,3V aan de ingang en geeft 5V uit.</p>
+      <p><b>Aansluiting:</b> voed hem met <b>5V</b> (VCC) en deel zijn <b>GND</b> met de ESP32 — anders
+      is zijn 5V-uitgang ongeldig. Eén kanaal volstaat: <b>ingang</b> = GPIO13 van de ESP32,
+      <b>uitgang</b> → de 330Ω → de eerste led. Bij een 74AHCT125 zet je de <b>OE</b> (output-enable)
+      van dat kanaal aan <b>GND</b> (dan is de uitgang actief).</p>`,
+    notes: [['','Op een 5V-microcontroller (Arduino Mega) is dit niet nodig; die stuurt de leds rechtstreeks aan.']],
   },
   ps3: {
-    name: 'PS3-controller (DualShock 3)', tag: 'Draadloze game-controller', color: '#c77bff',
+    name: 'Draadloze controller', tag: 'PS4/PS5/Xbox/8BitDo/Switch Pro (of DS3)', color: '#c77bff',
     html: `<p><b>Wat:</b> de controller waarmee je speelt — dezelfde knoppen als de widget onderin.
-      <b>D-pad</b> = de selectie horizontaal bewegen (x,y), <b>rechter knoppen</b> = een draaivlak
-      kiezen, <b>linkerstick ←/→</b> = draairichting, <b>● linkerstick</b> = 4D-rotatie,
-      <b>● rechterstick</b> = zet terug (undo), <b>SELECT/START</b> = husselen/reset.</p>
-      <p><b>Verbinding:</b> draadloos via Bluetooth naar de dongle in de USB Host Shield. Opladen
-      en de allereerste koppeling gaan via de USB-kabel.</p>`,
-    notes: [['','De controller-widget onderin het scherm is een 1-op-1 spiegel van deze fysieke knoppen.']],
+      <b>D-pad</b> = de selectie bewegen, <b>face-knoppen □✕○△</b> = een draaivlak / grip kiezen,
+      <b>linkerstick ←/→</b> = draairichting, <b>● linkerstick (L3)</b> = 4D-rotatie,
+      <b>● rechterstick (R3)</b> = zet terug (undo), <b>SELECT/START</b> = husselen/reset.</p>
+      <p><b>Verbinding:</b> draadloos via Bluetooth, <b>rechtstreeks naar de ingebouwde radio van de
+      ESP32</b> (met Bluepad32) — geen dongle. Een PS4/PS5/Xbox/8BitDo/Switch-Pro koppel je gewoon in
+      pairing-modus; een oude DualShock 3 heeft een eenmalige koppelstap.</p>`,
+    notes: [['','De controller-widget onderin het scherm is een 1-op-1 spiegel van deze knoppen.']],
   },
   rig: {
     name: 'De 189 WS2812B-leds', tag: '7 kubussen × 27 = 189 (NeoPixel)', color: '#ff9e2c',
@@ -165,7 +153,7 @@ const INFO = {
       adresseerbare WS2812B-leds</b> (NeoPixels).</p>
       <p><b>Slim eraan:</b> ze hangen in <b>één lange ketting</b> aan <u>één</u> datadraad. Elke
       led heeft een chip die "de eerste kleur voor mij houdt en de rest doorgeeft". Daarom is er
-      maar <b>1 datapin</b> (D6) nodig voor alle 189.</p>
+      maar <b>1 datapin</b> (GPIO13, via de levelshifter) nodig voor alle 189.</p>
       <p><b>Speel hier ook echt:</b> klik op een ledje om een cel te kiezen, of gebruik de
       joysticks onderin. Bij een draai verschuiven alléén de <b>kleuren</b> (de cellen permuteren
       wiskundig) en loopt er een heldere golf in de draairichting — precies wat de WS2812 doet.</p>
@@ -178,9 +166,9 @@ const INFO = {
 };
 
 const MENU = [
-  ['Besturing', ['mega','ush']],
+  ['Besturing', ['esp','lvl']],
   ['Voeding', ['psu','sw','cap','res']],
-  ['Invoer', ['ps3','dongle']],
+  ['Invoer', ['ps3']],
   ['Uitvoer', ['rig']],
 ];
 
@@ -261,32 +249,24 @@ function pinRow(n, spacing, color = 0x2b2b2b) {
 
 /* --------------------------------------------------------- build each part --- */
 
-// --- Arduino Mega 2560 (teal PCB) ---
-(function buildMega() {
+// --- ESP32 dev board (dark PCB, metal RF can + PCB antenna for the built-in Bluetooth) ---
+(function buildESP32() {
   const g = new THREE.Group(); g.position.set(0, 0.45, 0.5);
-  const pcb = box(6.2, 0.35, 4.0, 0x0c8074, { r: 0.5 }); g.add(pcb);
-  const usb = box(0.9, 0.5, 1.0, 0xb7bcc6, { m: 0.7, r: 0.35 }); usb.position.set(-3.0, 0.25, -0.9); g.add(usb);
-  const jack = box(0.9, 0.6, 0.9, 0x111319, { r: 0.4 }); jack.position.set(-3.0, 0.3, 0.7); g.add(jack);
-  const chip = box(1.4, 0.18, 0.7, 0x15171c, { r: 0.5 }); chip.position.set(0.6, 0.27, 0); g.add(chip);
-  const top = pinRow(18, 0.26, 0x1a1a1a); top.position.set(0.4, 0.36, -1.85); g.add(top);
-  const bot = pinRow(18, 0.26, 0x1a1a1a); bot.position.set(0.4, 0.36, 1.85); g.add(bot);
-  const anaR = pinRow(8, 0.26, 0x223); anaR.position.set(2.0, 0.36, 1.85); g.add(anaR);
-  registerPart('mega', g, new THREE.Vector3(0, 0.9, 0));
-  const Y = 0.2;
-  term('mega', 'D6',    new THREE.Vector3(-2.4, Y, -1.85));
-  term('mega', '5Vin',  new THREE.Vector3(-3.0, Y,  1.85));
-  term('mega', 'GNDin', new THREE.Vector3(-2.5, Y,  1.85));
-  term('mega', '5Vout', new THREE.Vector3(-1.6, Y,  1.85));
-  term('mega', 'GND',   new THREE.Vector3(-1.1, Y,  1.85));
-  term('mega', 'SDA',   new THREE.Vector3( 1.2, Y, -1.85));
-  term('mega', 'SCL',   new THREE.Vector3( 1.6, Y, -1.85));
-  const ax = ['A0','A1','A2','A3','A4','A5'];
-  ax.forEach((a, i) => term('mega', a, new THREE.Vector3(3.0, Y, -1.3 + i * 0.5)));
-  ['D22','D23','D24'].forEach((d, i) => term('mega', d, new THREE.Vector3(0.6 + i * 0.5, Y, 1.85)));
-  // USB Host Shield interface: INT on D9, SS on D10 (top digital row), SPI via ICSP (centre)
-  term('mega', 'D9',  new THREE.Vector3(-1.6, Y, -1.85));
-  term('mega', 'D10', new THREE.Vector3(-1.1, Y, -1.85));
-  term('mega', 'SPI', new THREE.Vector3( 1.6, Y,  0));
+  const pcb = box(3.4, 0.22, 1.6, 0x14181f, { r: 0.5 }); g.add(pcb);
+  // shiny metal RF shield can over the ESP32-WROOM module (this is where the radio lives)
+  const can = box(1.25, 0.3, 1.15, 0xc6ccd6, { m: 0.85, r: 0.28 }); can.position.set(-0.85, 0.22, 0); g.add(can);
+  // the white "comb" PCB antenna at the end — where Bluetooth radiates from
+  const ant = box(0.5, 0.06, 1.0, 0xdfe6f5, { e: 0x6677aa, ei: 0.4, r: 0.6 }); ant.position.set(-1.45, 0.14, 0); g.add(ant);
+  const usb = box(0.7, 0.4, 0.55, 0xb7bcc6, { m: 0.7, r: 0.35 }); usb.position.set(1.55, 0.18, 0); g.add(usb);  // USB-micro/-C
+  const chip = box(0.5, 0.12, 0.5, 0x15171c, { r: 0.5 }); chip.position.set(0.7, 0.18, 0); g.add(chip);
+  const top = pinRow(15, 0.2, 0x1a1a1a); top.position.set(0.1, 0.2, -0.78); g.add(top);
+  const bot = pinRow(15, 0.2, 0x1a1a1a); bot.position.set(0.1, 0.2, 0.78); g.add(bot);
+  registerPart('esp', g, new THREE.Vector3(0, 0.8, 0));
+  const Y = 0.12;
+  term('esp', '5Vin',  new THREE.Vector3( 1.1, Y,  0.78));   // 5V/VIN pin
+  term('esp', 'GNDin', new THREE.Vector3( 0.7, Y,  0.78));
+  term('esp', 'D13',   new THREE.Vector3( 0.2, Y, -0.78));   // led data out (GPIO13)
+  term('esp', 'BT',    new THREE.Vector3(-1.75, 0.3, 0));    // the antenna end (wireless source)
 })();
 
 // --- 5V power supply (silver brick) ---
@@ -340,38 +320,18 @@ function pinRow(n, spacing, color = 0x2b2b2b) {
   term('cap', '-', new THREE.Vector3( 0.18, 0.05, 0));
 })();
 
-// --- USB Host Shield 2.0 (stacks on the Mega; carries the BT dongle) ---
-(function buildUSBShield() {
-  const g = new THREE.Group(); g.position.set(0, 1.5, 0.5);
-  const board = box(5.4, 0.26, 3.5, 0x1c3f8f, { r: 0.5 }); g.add(board);
-  const chip = box(1.0, 0.18, 1.0, 0x15171c, { r: 0.5 }); chip.position.set(0.4, 0.2, 0); g.add(chip);
-  const usbA = box(1.1, 0.85, 1.3, 0xb7bcc6, { m: 0.7, r: 0.35 }); usbA.position.set(0, 0.1, 1.9); g.add(usbA);
-  const usbHole = box(0.8, 0.45, 0.2, 0x05070c); usbHole.position.set(0, 0.12, 2.46); g.add(usbHole);
-  // stacking header strips + standoff posts that plug down onto the Mega
-  const h1 = pinRow(16, 0.3, 0x1a1a1a); h1.position.set(0, -0.18, -1.55); g.add(h1);
-  const h2 = pinRow(16, 0.3, 0x1a1a1a); h2.position.set(0, -0.18, 1.55); g.add(h2);
-  for (const [px, pz] of [[-2.4, -1.4], [2.4, -1.4], [-2.4, 1.4], [2.4, 1.4]]) {
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.78, 10),
-      mat(0x8893a8, { m: 0.5, r: 0.5 })); post.position.set(px, -0.52, pz); g.add(post);
-  }
-  registerPart('ush', g, new THREE.Vector3(0, 1.0, 0));
-  term('ush', '5V',  new THREE.Vector3(-1.9, -0.2,  1.5));
-  term('ush', 'GND', new THREE.Vector3(-1.4, -0.2,  1.5));
-  term('ush', 'SPI', new THREE.Vector3( 1.5, -0.2,  0.0));
-  term('ush', 'INT', new THREE.Vector3(-1.6, -0.2, -1.5));
-  term('ush', 'SS',  new THREE.Vector3(-1.1, -0.2, -1.5));
-  term('ush', 'USB', new THREE.Vector3( 0.0,  0.1,  1.95));
-})();
-
-// --- USB Bluetooth dongle (plugged into the shield's USB-A port) ---
-(function buildDongle() {
-  const g = new THREE.Group(); g.position.set(0, 1.6, 2.9);
-  const bodyD = box(0.42, 0.3, 1.0, 0x101319, { r: 0.45 }); g.add(bodyD);
-  const conn = box(0.36, 0.22, 0.5, 0xc6ccd6, { m: 0.7, r: 0.35 }); conn.position.set(0, 0, -0.65); g.add(conn);
-  const ledD = box(0.08, 0.08, 0.08, 0x36c7ff, { e: 0x1a6fb0, ei: 1.6 }); ledD.position.set(0, 0.18, 0.35); g.add(ledD);
-  registerPart('dongle', g, new THREE.Vector3(0, 0.8, 0));
-  term('dongle', 'USB', new THREE.Vector3(0, 0,    -0.7));
-  term('dongle', 'BT',  new THREE.Vector3(0, 0.12,  0.5));
+// --- 3.3V->5V level shifter breakout (sits in the data line, ESP32 -> 330Ω) ---
+(function buildLevelShifter() {
+  const g = new THREE.Group(); g.position.set(2.4, 0.4, -1.7);
+  const board = box(1.4, 0.2, 0.95, 0x2e7d32, { r: 0.55 }); g.add(board);     // small green breakout
+  const chip = box(0.55, 0.16, 0.42, 0x15171c, { r: 0.5 }); chip.position.set(0, 0.16, 0); g.add(chip);
+  const lp = pinRow(4, 0.22, 0x1a1a1a); lp.position.set(0, 0.13, -0.48); g.add(lp);
+  const rp = pinRow(4, 0.22, 0x1a1a1a); rp.position.set(0, 0.13,  0.48); g.add(rp);
+  registerPart('lvl', g, new THREE.Vector3(0, 0.7, 0));
+  term('lvl', 'in',  new THREE.Vector3(-0.5, 0.05, -0.48));   // LV side: 3,3V from the ESP32
+  term('lvl', 'out', new THREE.Vector3(-0.5, 0.05,  0.48));   // HV side: 5V to the resistor
+  term('lvl', 'VCC', new THREE.Vector3( 0.5, 0.05,  0.48));   // 5V supply
+  term('lvl', 'GND', new THREE.Vector3( 0.5, 0.05, -0.48));   // shared ground
 })();
 
 // --- wireless PS3 controller (DualShock 3) — the thing you actually hold ---
@@ -409,7 +369,7 @@ function pinRow(n, spacing, color = 0x2b2b2b) {
     pl.position.set(-0.3 + i * 0.2, TOP + 0.02, -0.55); g.add(pl);
   }
   registerPart('ps3', g, new THREE.Vector3(0, 1.5, 0));
-  term('ps3', 'BT', new THREE.Vector3(0, 0.6, -1.05));   // faces the dongle/Mega
+  term('ps3', 'BT', new THREE.Vector3(0, 0.6, -1.05));   // faces the ESP32's antenna
 })();
 
 /* ============================================================================
