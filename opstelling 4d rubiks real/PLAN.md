@@ -143,5 +143,11 @@ C voor look & fabricage. Begin met A.
 - [x] **Opgeruimd** (na kennis-check, niets unieks verloren): `index.html`/`sim.js` +
       `led-pad.html`/`.js` verwijderd, `🎮 Spel`-tab weg. `hardware.html` is nu de **enige ingang**
       (werkbank + speelbare digital twin in één scène).
+- [x] **ESP32 + Bluepad32 als aanbevolen rig-firmware** (`firmware/esp32_bluepad32/`): draadloze
+      controller (PS4/PS5/Xbox/8BitDo/Switch Pro, of DS3 met koppelstap) via de **ingebouwde**
+      Bluetooth — geen USB Host Shield/dongle. Lost de SRAM-krapte (~320 KB) en de WS2812+USB-host-
+      timing (RMT-hardware) op. Zelfde `tesseract_engine.h`, as-native nav en vlak-+-richting-model
+      als de Mega-rig en de bench. BOM/§-microcontroller in `BEDRADING.md` herzien (ESP32 = primair,
+      Mega = alternatief). Bouwhandleiding: `README-esp32.md`.
 - [ ] Wokwi logica-testbank (`firmware/wokwi/sketch.ino`) draaien + bedrading op breadboard verifiëren
-- [ ] Fysieke bouw
+- [ ] Fysieke bouw (aanbevolen: ESP32 + Bluepad32)

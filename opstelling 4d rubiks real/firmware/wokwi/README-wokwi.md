@@ -11,13 +11,14 @@ Test de engine + led-adressering in de browser — sticks, D-pad, face-knoppen, 
 189-led-keten — zonder hardware te kopen. Wokwi draait de C++-code tegen gesimuleerde onderdelen,
 dus je valideert hier de **logica en de bedrading/adressering**.
 
-> ℹ️ **Dit is de logica-testbank** [`sketch.ino`](sketch.ino). De échte rig-firmware
-> [`../tesseract_rig.ino`](../tesseract_rig.ino) gebruikt een draadloze PS3-controller (PS3BT via
-> USB Host Shield), die Wokwi **niet** kan simuleren. Daarom bootst deze build dezelfde
+> ℹ️ **Dit is de logica-testbank** [`sketch.ino`](sketch.ino). De échte rig draait op een
+> **draadloze controller** die Wokwi **niet** kan simuleren — of dat nu de aanbevolen
+> **ESP32 + Bluepad32** ([`../esp32_bluepad32/`](../esp32_bluepad32/)) is of de Mega + PS3BT
+> ([`../tesseract_rig.ino`](../tesseract_rig.ino)). Daarom bootst deze build dezelfde
 > controller-layout na met onderdelen die Wokwi *wél* kan simuleren (2 analoge sticks + D-pad +
 > 4 face-knoppen + SELECT/START). De **mapping, de as-native navigatie én het "vlak armeren +
-> richting"-draaimodel zijn nu identiek aan de rig en aan `hardware.html`** — alleen de draadloze
-> link is nagebootst. Beide builds delen dezelfde `tesseract_engine.h`, dus wat je hier over
+> richting"-draaimodel zijn identiek aan beide rig-firmwares en aan `hardware.html`** — alleen de
+> draadloze link is nagebootst. Alle builds delen dezelfde `tesseract_engine.h`, dus wat je hier over
 > kleuren/adressering/besturing verifieert, klopt 1-op-1 op de rig.
 
 > Wokwi tekent géén 3D-tesseract: de 189 leds staan als één rij. Voor de ruimtelijke beleving

@@ -17,40 +17,52 @@ stroombudget, led-volgorde en een veilige bouwvolgorde. Het hoort bij:
 
 ## 1. Onderdelenlijst (BOM)
 
+De BOM kent twee controller-paden. **Aanbevolen = ESP32 + Bluepad32** (regels 1a/4a); het
+**alternatief = Mega + USB Host Shield** (regels 1b/4b/5b/10b). De rest is voor beide gelijk.
+
 | # | Onderdeel | Aantal | Keuze / specificatie | Indicatie* | Waarom |
 |---|-----------|--------|----------------------|-----------|--------|
-| 1 | Microcontroller | 1 | **Arduino Mega 2560** | €15–40 | 8 KB RAM, 16 analoge pinnen, **5V-logica** (geen levelshifter nodig) |
+| 1a | **Microcontroller (aanbevolen)** | 1 | **ESP32-dev-board** (bijv. WROOM DevKitC) | €6–12 | ~320 KB RAM, ingebouwde Bluetooth (Bluepad32), RMT-led-timing |
+| 4a | **Levelshifter (ESP32-pad)** | 1 | **74AHCT125** (of 74HCT245) | €1–2 | tilt de 3,3V-datalijn naar een geldige 5V-high voor de WS2812 |
+| 1b | Microcontroller (alternatief) | 1 | Arduino Mega 2560 | €15–40 | 5V-logica (geen levelshifter), maar 8 KB RAM is krap |
+| 4b | USB Host Shield (alt.) | 1 | USB Host Shield 2.0 (MAX3421E; SPI via ICSP) | €10–20 | maakt de 5V-Mega een USB-host; draagt de dongle |
+| 5b | Bluetooth-dongle (alt.) | 1 | USB-BT-dongle, CSR-chip | €5 | draadloze brug naar de controller (PS3BT) |
+| 10b| USB-kabel (alt.) | 1 | USB-A → mini-USB | €2 | éénmalige DS3-koppeling (SetBdaddr) + opladen |
 | 2 | RGB-leds | 189 | **WS2812B / NeoPixel** (los, strip of matrix-segmenten) | €25–60 | individueel adresseerbaar, 1 datadraad voor alle 189 |
 | 3 | Voeding | 1 | **5V / 10A** (geregeld; full-white: ≥15A — zie §4) | €12–25 | 189 leds trekken veel stroom; USB kan dit niet |
-| 4 | USB Host Shield | 1 | **USB Host Shield 2.0** (MAX3421E; SPI via ICSP-header) | €10–20 | maakt de 5V-Mega een USB-host; draagt de dongle |
-| 5 | Bluetooth-dongle | 1 | **USB-BT-dongle**, CSR-chip aanbevolen | €5 | draadloze brug naar de controller (PS3BT) |
-| 6 | PS3-controller | 1 | **DualShock 3 / Sixaxis** (origineel werkt het best) | €15–30 | de game-controller: bewegen, draaien, 4D, husselen/reset |
+| 6 | Controller | 1 | **PS4/PS5/Xbox/8BitDo/Switch Pro** (plug-and-pair) of **DualShock 3** (koppelstap) | €15–60 | bewegen, draaien, 4D, husselen/reset |
 | 7 | Condensator | 1 | **1000µF / 10–16V** elektrolytisch | €0,50 | buffert stroompieken bij de leds |
 | 8 | Weerstand | 1 | **330Ω** (220–470Ω ok) | €0,10 | beschermt de data-ingang van led #1 |
 | 9 | Aan/uit-schakelaar | 1 | rocker/schakelaar **≥10A** (15A bij full-white; of MOSFET-module) | €2–5 | onderbreekt de 5V-lijn |
-| 10| USB-kabel | 1 | **USB-A → mini-USB** (controller laden + koppelen) | €2 | éénmalige koppeling (SetBdaddr) + opladen |
 | 11| Zekering (aanbevolen) | 1 | inline **10A** (15A traag bij full-white) + houder | €2 | beschermt de **dunste draad**, niet de last |
 | 12| Draad | — | **16–18 AWG** voor 5V/GND-hoofdlijnen, 22–24 AWG signaal | €5 | dikke draad voor de stroom, dun voor signalen |
 | 13| Diversen | — | breadboard/PCB, dupont-draadjes, JST-connectoren, krimpkous | €10 | montage |
 | 14| Behuizing | 7 kubussen | doorschijnend-wit PETG/acryl, 3D-print | zelf | je eigen 3D-model |
 
 \* Ruwe hobby-prijzen, sterk afhankelijk van bron. Reken op **€100–200** totaal exclusief behuizing.
+Het ESP32-pad is doorgaans **goedkoper** (geen shield + dongle) en betrouwbaarder.
 
-### Microcontroller: Mega vs. ESP32
+### Microcontroller: ESP32 (aanbevolen) vs. Mega
 
-| | **Arduino Mega 2560** (aanbevolen) | ESP32 (alternatief) |
+| | **ESP32 + Bluepad32** (aanbevolen) | Arduino Mega 2560 (alternatief) |
 |---|---|---|
-| Logica-spanning | **5V** → stuurt WS2812 direct aan | 3,3V → **levelshifter nodig** op datalijn |
-| Controller-koppeling | USB Host Shield (SPI/ICSP) + BT-dongle | **ingebouwde Bluetooth** → géén shield/dongle nodig (Bluepad32) |
-| RAM | 8 KB (deze firmware gebruikt ~5–6 KB) | 520 KB (zeeën van ruimte) |
-| Snelheid | 16 MHz (prima) | 240 MHz (sneller, vloeiender) |
-| Extra | heel vergevingsgezind voor beginners | WiFi/Bluetooth, compacter |
-| **Conclusie** | **simpelst & veiligst om te starten** | kies dit als je BT zónder shield of compactheid wilt |
+| Controller-koppeling | **ingebouwde Bluetooth** → géén shield/dongle (Bluepad32) | USB Host Shield (SPI/ICSP) + BT-dongle |
+| RAM | ~320 KB vrij (zeeën van ruimte) | 8 KB — krap; de PS3BT-build is nooit op RAM getest |
+| WS2812-timing | **RMT-hardware** → `show()` blokkeert Bluetooth niet | interrupts ~6 ms uit per frame; lastig naast USB-host |
+| Logica-spanning | 3,3V → **levelshifter nodig** op datalijn | **5V** → stuurt WS2812 direct aan |
+| Snelheid | 240 MHz, dual-core | 16 MHz (prima) |
+| **Conclusie** | **beste optie: minder onderdelen, ruim geheugen, geen timing-gedoe** | kies dit alleen als je per se 5V-only wilt |
 
-> Deze firmware en bedrading gaan uit van de **Mega + USB Host Shield**. Voor ESP32: voeg een
-> levelshifter (bijv. 74AHCT125) tussen pin → DIN, koppel de PS3-controller via de ingebouwde
-> Bluetooth (bijv. **Bluepad32**) zónder shield, en voed de ESP32 niet via de 5V-pin maar via
-> een eigen regelaar/VIN.
+> **Aanbevolen pad:** **ESP32 + Bluepad32** — firmware
+> [`firmware/esp32_bluepad32/esp32_bluepad32.ino`](firmware/esp32_bluepad32/esp32_bluepad32.ino),
+> bouwhandleiding [`firmware/esp32_bluepad32/README-esp32.md`](firmware/esp32_bluepad32/README-esp32.md).
+> Enige extra: één **3,3V→5V levelshifter** (74AHCT125) tussen GPIO → DIN; voed het ESP32-board via
+> zijn **5V/VIN**-pin (nooit 5V op 3V3); deel de GND. De controller (PS4/PS5/Xbox/8BitDo/Switch Pro,
+> of een DS3 met koppelstap) verbindt via de **ingebouwde** Bluetooth — geen shield/dongle.
+>
+> **Alternatief (5V-only):** Mega + USB Host Shield + PS3BT — firmware
+> [`firmware/tesseract_rig.ino`](firmware/tesseract_rig.ino). Let op de krappe 8 KB SRAM
+> (`freeRam()` wordt geprint) en de WS2812+USB-host-timing.
 
 ---
 
@@ -267,8 +279,9 @@ oorspronkelijke "draai leek onzichtbaar"-bug; opgelost in `ORIENT`).
 
 | Bestand | Rol |
 |---|---|
-| `firmware/tesseract_rig.ino` | hoofdprogramma voor de **echte rig**: leds + **draadloze PS3-controller (PS3BT via USB Host Shield)** + draai-animatie. Spiegelt de bediening van `hardware.html`. |
-| `firmware/tesseract_engine.h` | de geporte 4D-engine (≈ `engine.js`) — de wiskunde + de led-soldeerkaart (`ORIENT` / `printWiringChart`) |
+| `firmware/esp32_bluepad32/esp32_bluepad32.ino` | **aanbevolen rig-firmware**: leds + **draadloze controller via de ingebouwde ESP32-Bluetooth (Bluepad32)** + draai-animatie. Spiegelt de bediening van `hardware.html`. Zie [`README-esp32.md`](firmware/esp32_bluepad32/README-esp32.md). |
+| `firmware/tesseract_rig.ino` | **alternatieve rig-firmware** (5V-only): leds + **draadloze PS3-controller (PS3BT via USB Host Shield)** + draai-animatie. Let op de krappe 8 KB SRAM. |
+| `firmware/tesseract_engine.h` | de geporte 4D-engine (≈ `engine.js`) — de wiskunde + de led-soldeerkaart (`ORIENT` / `printWiringChart`) + `freeRam()`. Gedeeld door **alle** firmwares. |
 | `firmware/wokwi/sketch.ino` | **Wokwi-logica-testbank** (PS3-layout nagebootst: 2 sticks + D-pad + 4 face-knoppen + SELECT/START + OLED): zelfde engine + leds + besturingsmodel, want Wokwi kan geen PS3-host simuleren |
 
 **Libraries voor de rig** (Arduino IDE → Bibliotheken beheren): **FastLED** en **USB Host Shield

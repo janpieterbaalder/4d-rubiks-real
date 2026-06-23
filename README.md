@@ -18,7 +18,7 @@ draai af aan een heldere golf die in de draairichting langs de ledjes loopt.
 |---|---|
 | **[`opstelling 4d rubiks real/`](opstelling%204d%20rubiks%20real/)** | De kern. `hardware.html` + `hardware.js` = interactieve 3D-werkbank (klik elk onderdeel voor uitleg + bedrading) **én** de speelbare digital twin op de 189 led-meshes. |
 | `opstelling 4d rubiks real/engine.js` | De geverifieerde 4D-engine (twists, grips, centreren, 189-led-uitlezing, `ORIENT`). 28 tests in `engine.test.js`. |
-| `opstelling 4d rubiks real/firmware/` | Arduino-firmware: `tesseract_rig.ino` (PS3BT-besturing) + `tesseract_engine.h` (de engine 1-op-1 in C++). Plus een Wokwi-logica-testbank in `firmware/wokwi/`. |
+| `opstelling 4d rubiks real/firmware/` | Firmware: **`esp32_bluepad32/`** (aanbevolen: ESP32 + draadloze controller via Bluepad32) + `tesseract_rig.ino` (alternatief: Mega + PS3BT) + `tesseract_engine.h` (de engine 1-op-1 in C++). Plus een Wokwi-logica-testbank in `firmware/wokwi/`. |
 | `opstelling 4d rubiks real/BEDRADING.md` | De bouwhandleiding: onderdelenlijst, pin-voor-pin bedrading, stroombudget, led-volgorde, bouw-/testvolgorde. |
 | `opstelling 4d rubiks real/game/` | De complete, speelbare **4D-Rubiks-game** (Tesseract), meegeleverd en bereikbaar via de tab **🎮 Game** in de werkbank. |
 | **[`4d rubiks 3d model/`](4d%20rubiks%203d%20model/)** | Het Blender-model van de fysieke opstelling (7 kubussen, verbindingsstaafjes, staander met ronde voet) + renders. |
