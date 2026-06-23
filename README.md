@@ -9,8 +9,8 @@ draai af aan een heldere golf die in de draairichting langs de ledjes loopt.
 > **▶ Live 3D-omgeving:** **https://janpieterbaalder.github.io/4d-rubiks-real/** — de volledige
 > interactieve werkbank + speelbare twin draait in je browser (geen installatie nodig).
 >
-> **Speel de originele 4D-game online:** https://janpieterbaalder.github.io/tesseract-4d-rubiks-cube/
-> — ook bereikbaar via de tab **🎮 Online game** in de 3D-werkbank.
+> De volledige, speelbare **4D-Rubiks-game** zit **mee in deze repo** en opent vanuit de werkbank
+> via de tab **🎮 Game** (`opstelling 4d rubiks real/game/`) — geen externe link.
 
 ## Wat zit erin
 
@@ -20,6 +20,7 @@ draai af aan een heldere golf die in de draairichting langs de ledjes loopt.
 | `opstelling 4d rubiks real/engine.js` | De geverifieerde 4D-engine (twists, grips, centreren, 189-led-uitlezing, `ORIENT`). 28 tests in `engine.test.js`. |
 | `opstelling 4d rubiks real/firmware/` | Arduino-firmware: `tesseract_rig.ino` (PS3BT-besturing) + `tesseract_engine.h` (de engine 1-op-1 in C++). Plus een Wokwi-logica-testbank in `firmware/wokwi/`. |
 | `opstelling 4d rubiks real/BEDRADING.md` | De bouwhandleiding: onderdelenlijst, pin-voor-pin bedrading, stroombudget, led-volgorde, bouw-/testvolgorde. |
+| `opstelling 4d rubiks real/game/` | De complete, speelbare **4D-Rubiks-game** (Tesseract), meegeleverd en bereikbaar via de tab **🎮 Game** in de werkbank. |
 | **[`4d rubiks 3d model/`](4d%20rubiks%203d%20model/)** | Het Blender-model van de fysieke opstelling (7 kubussen, verbindingsstaafjes, staander met ronde voet) + renders. |
 | `playstation controller/` | Ontwerp-asset van de controller-bediening. |
 
@@ -49,5 +50,6 @@ node engine.test.js   # verwacht: 28 checks passed.
 
 ---
 
-*De originele 4D-Rubiks-game (waar de engine uit is afgeleid) staat in een aparte repo:*
+*De 4D-Rubiks-game zit mee in `opstelling 4d rubiks real/game/` (waar de engine uit is afgeleid).
+De upstream-broncode bestaat ook als losse repo:*
 [tesseract-4d-rubiks-cube](https://github.com/janpieterbaalder/tesseract-4d-rubiks-cube).

@@ -4,9 +4,9 @@
 # Blender auto-backups
 *.blend1
 
-# The original Tesseract game lives in its OWN repo (linked from hardware.html):
-#   https://github.com/janpieterbaalder/tesseract-4d-rubiks-cube
-#   live: https://janpieterbaalder.github.io/tesseract-4d-rubiks-cube/
+# Local working clone of the Tesseract game (has its own .git). The PUBLISHED, playable copy
+# lives in `opstelling 4d rubiks real/game/` and IS committed; this dev clone stays excluded.
+# Upstream repo: https://github.com/janpieterbaalder/tesseract-4d-rubiks-cube
 code 4d rubiks spel/
 
 # Throwaway working render
