@@ -478,7 +478,7 @@ let chainGroup = null, chainPulse = null;
   const dome = new THREE.Mesh(new THREE.SphereGeometry(1.7, 44, 22), frameMat());
   dome.scale.set(1, 0.32, 1); dome.position.set(0, FOOT_BOTTOM + 0.38, 0);
   dome.userData.shell = true; dome.raycast = () => {}; g.add(dome);
-  rod([0, -RIG.D, 0], [0, FOOT_BOTTOM + 0.85, 0], 0.13);    // the pole, down into the foot's rounded top
+  rod([0, -RIG.D, 0], [0, FOOT_BOTTOM + 0.85, 0], 0.065);   // the pole, down into the foot's rounded top
 
   for (const slot of SLOT_ORDER) {
     const [cx, cy, cz] = SLOTS[slot].pos;
