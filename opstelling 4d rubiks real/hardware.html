@@ -228,10 +228,11 @@
     <p class="sub">Een fysieke 4D-rubikskubus als licht-installatie · 189 WS2812B-leds in 7 kubussen</p>
 
     <h3>Wat is dit?</h3>
-    <p>Eén 3D-scène met zowel de echte <b>hardware</b> (Arduino Mega, USB Host Shield + Bluetooth-dongle
-      + draadloze PS3-controller, 5V-voeding, 330Ω-weerstand, 1000µF-condensator, aan/uit-schakelaar) als
-      de <b>speelbare game</b> op diezelfde 189 led-meshes. De 7 kubussen (midden + 6 armen, elk 3×3×3 = 27
-      leds) staan met staven verbonden op een rond voetstuk — net als het Blender-3D-model.</p>
+    <p>Eén 3D-scène met zowel de echte <b>hardware</b> (een ESP32 met ingebouwde Bluetooth, een
+      3,3V→5V-levelshifter op de datalijn, een draadloze controller, 5V-voeding, 330Ω-weerstand,
+      1000µF-condensator, aan/uit-schakelaar) als de <b>speelbare game</b> op diezelfde 189 led-meshes.
+      De 7 kubussen (midden + 6 armen, elk 3×3×3 = 27 leds) staan met staven verbonden op een rond
+      voetstuk — net als het Blender-3D-model.</p>
     <p><b>Niets beweegt mechanisch.</b> Een "draai" verplaatst geen plastic: alleen de <b>kleuren</b> van
       de ledjes verschuiven (de cellen permuteren wiskundig). Een tesseract heeft <b>8 cellen</b>; je bouwt
       er fysiek 7 — de 8e ("buitenste") is verborgen. Met een <b>4D-rotatie</b> op de centrale cel van een
@@ -254,16 +255,18 @@
 
     <h3>De hardware</h3>
     <p>Klik links op een onderdeel om te zien wat het is en hoe het is aangesloten (de gekleurde draden
-      lichten dan op). De <b>besturing</b> is een draadloze PS3-controller via een USB Host Shield + BT-dongle
-      (klasse <code>PS3BT</code>); de <b>189 leds</b> hangen aan één datadraad (pin 6, via 330Ω) uit een aparte
-      5V-voeding met power-injectie. De volledige bouwhandleiding — onderdelenlijst, pin-voor-pin bedrading,
-      stroombudget en led-volgorde — staat in <code>BEDRADING.md</code>.</p>
+      lichten dan op). De <b>besturing</b> is een draadloze controller (PS4/PS5/Xbox/8BitDo/Switch Pro, of een
+      DS3) via de <b>ingebouwde Bluetooth van de ESP32</b> (bibliotheek <code>Bluepad32</code>) — geen shield
+      of dongle. De <b>189 leds</b> hangen aan één datadraad (GPIO13, via een levelshifter + 330Ω) uit een
+      aparte 5V-voeding met power-injectie. De volledige bouwhandleiding — onderdelenlijst, pin-voor-pin
+      bedrading, stroombudget en led-volgorde — staat in <code>BEDRADING.md</code>.</p>
 
     <h3>Firmware &amp; testen zonder hardware</h3>
-    <p>De geverifieerde 4D-engine draait <b>1-op-1</b> op de Arduino (<code>firmware/</code>). Geen hardware
-      bij de hand? In <b>Wokwi</b> draai je de échte Arduino-code tegen gesimuleerde WS2812-leds in de browser
-      — de logica-testbank <code>firmware/wokwi/sketch.ino</code> (3 joysticks + OLED, want Wokwi kan geen
-      PS3-host simuleren) test de engine én de 189-led-adressering.</p>
+    <p>De geverifieerde 4D-engine draait <b>1-op-1</b> op de microcontroller (<code>firmware/</code>;
+      aanbevolen: <code>esp32_bluepad32/</code>). Geen hardware bij de hand? In <b>Wokwi</b> draai je de échte
+      Arduino-code tegen gesimuleerde WS2812-leds in de browser — de logica-testbank
+      <code>firmware/wokwi/sketch.ino</code> (PS3-layout met sticks + knoppen, want Wokwi kan geen draadloze
+      controller simuleren) test de engine én de 189-led-adressering.</p>
 
     <h3>Links</h3>
     <ul>
@@ -309,10 +312,8 @@
       <div class="acc-b">
         <span class="leg"><i style="background:var(--w-pwr)"></i> +5V</span>
         <span class="leg"><i style="background:var(--w-gnd)"></i> GND (massa)</span>
-        <span class="leg"><i style="background:var(--w-data)"></i> Data → leds</span>
-        <span class="leg"><i style="background:var(--w-sig)"></i> SPI → shield</span>
-        <span class="leg"><i style="background:var(--w-i2c)"></i> USB-dongle</span>
-        <span class="leg"><i style="background:var(--w-btn)"></i> Bluetooth</span>
+        <span class="leg"><i style="background:var(--w-data)"></i> Data → leds (via levelshifter)</span>
+        <span class="leg"><i style="background:var(--w-btn)"></i> Bluetooth (ingebouwd)</span>
       </div>
     </div>
   </aside>
@@ -392,7 +393,7 @@
     }
   }
   </script>
-  <script type="module" src="hardware.js?v=8"></script>
+  <script type="module" src="hardware.js?v=9"></script>
   <script>
     // "Over"-tab toggles the project-info overlay (separate from the per-component info panel)
     (function () {

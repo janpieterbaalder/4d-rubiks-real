@@ -1,11 +1,11 @@
 # Opstelling 4D Rubiks — 3D werkbank + speelbare digital twin
 
-`hardware.html` is de **enige ingang**: één 3D-scène met zowel de **hardware** (Arduino Mega,
-USB Host Shield + Bluetooth-dongle + draadloze PS3-controller, voeding, weerstand, condensator,
-schakelaar en de 189-WS2812B-led-rig) als de **speelbare game** op diezelfde 189 led-meshes —
-7 oplichtende kubussen (midden + 6 armen, elk 27 leds = **189 RGB-leds**). Klik een onderdeel
-aan voor uitleg + bedrading, of speel direct (klik een ledje / PS3-widget / toetsenbord).
-Aangestuurd door dezelfde, wiskundig geverifieerde engine als de game.
+`hardware.html` is de **enige ingang**: één 3D-scène met zowel de **hardware** (een ESP32 met
+ingebouwde Bluetooth, een 3,3V→5V-levelshifter, een draadloze controller, voeding, weerstand,
+condensator, schakelaar en de 189-WS2812B-led-rig) als de **speelbare game** op diezelfde 189
+led-meshes — 7 oplichtende kubussen (midden + 6 armen, elk 27 leds = **189 RGB-leds**). Klik een
+onderdeel aan voor uitleg + bedrading, of speel direct (klik een ledje / controller-widget /
+toetsenbord). Aangestuurd door dezelfde, wiskundig geverifieerde engine als de game.
 
 Zie [PLAN.md](PLAN.md) voor het volledige plan en [BEDRADING.md](BEDRADING.md) voor de
 bouwhandleiding (BOM, pin-voor-pin, stroombudget, led-volgorde).

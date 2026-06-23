@@ -149,5 +149,11 @@ C voor look & fabricage. Begin met A.
       timing (RMT-hardware) op. Zelfde `tesseract_engine.h`, as-native nav en vlak-+-richting-model
       als de Mega-rig en de bench. BOM/§-microcontroller in `BEDRADING.md` herzien (ESP32 = primair,
       Mega = alternatief). Bouwhandleiding: `README-esp32.md`.
+- [x] **3D-werkbank omgebouwd naar de ESP32-opstelling** (`hardware.html` + `hardware.js`, cache v=9):
+      het Mega-bordje, de USB Host Shield en de BT-dongle zijn vervangen door een **ESP32** (met
+      ingebouwde-Bluetooth-antenne) + een **3,3V→5V-levelshifter** op de datalijn (GPIO13 → levelshifter
+      → 330Ω → DIN). `CONNECTIONS`, de info-kaartjes, de dradenlegenda en de "Over"-teksten lopen nu
+      gelijk met de aanbevolen ESP32-firmware. De draadloze controller praat rechtstreeks met de ESP32
+      (geen dongle). De speelbare rig + engine zijn ongemoeid.
 - [ ] Wokwi logica-testbank (`firmware/wokwi/sketch.ino`) draaien + bedrading op breadboard verifiëren
 - [ ] Fysieke bouw (aanbevolen: ESP32 + Bluepad32)
