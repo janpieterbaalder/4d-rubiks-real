@@ -226,25 +226,50 @@
     <button class="close" id="about-close">×</button>
     <h2>4D&nbsp;Rubiks — over deze installatie</h2>
     <p class="sub">Een fysieke 4D-rubikskubus als licht-installatie · 189 WS2812B-leds in 7 kubussen</p>
-    <p>Dit is één 3D-scène met zowel de <b>hardware</b> (Arduino Mega, USB Host Shield + Bluetooth-dongle
-      + draadloze PS3-controller, voeding, weerstand, condensator, schakelaar) als de <b>speelbare game</b>
-      op de 189 led-meshes. <b>Niets beweegt mechanisch</b> — een "draai" verschuift alleen de kleuren van
-      de ledjes (de cellen permuteren wiskundig); je leest de draai af aan een heldere golf die in de
-      draairichting langs de ledjes loopt.</p>
+
+    <h3>Wat is dit?</h3>
+    <p>Eén 3D-scène met zowel de echte <b>hardware</b> (Arduino Mega, USB Host Shield + Bluetooth-dongle
+      + draadloze PS3-controller, 5V-voeding, 330Ω-weerstand, 1000µF-condensator, aan/uit-schakelaar) als
+      de <b>speelbare game</b> op diezelfde 189 led-meshes. De 7 kubussen (midden + 6 armen, elk 3×3×3 = 27
+      leds) staan met staven verbonden op een rond voetstuk — net als het Blender-3D-model.</p>
+    <p><b>Niets beweegt mechanisch.</b> Een "draai" verplaatst geen plastic: alleen de <b>kleuren</b> van
+      de ledjes verschuiven (de cellen permuteren wiskundig). Een tesseract heeft <b>8 cellen</b>; je bouwt
+      er fysiek 7 — de 8e ("buitenste") is verborgen. Met een <b>4D-rotatie</b> op de centrale cel van een
+      arm haal je verborgen cellen in beeld: die kubus wordt logisch het midden.</p>
+
+    <h3>Hoe je een draai ziet</h3>
+    <p>Een draai is een <b>permutatie</b>: elke kleur verhuist van led naar led in kleine kringetjes
+      (4-cycli bij 90°, 3-cycli bij hoek-spins, 2-cycli bij rand-flips). Er loopt een <b>heldere golf</b> in
+      de draairichting langs zo'n kring terwijl elke led naar z'n nieuwe kleur overvloeit; de rest dimt even
+      weg. Zo lees je de draai af — óók op een effen opgeloste kubus. Puur led-kleur + helderheid, dus 1-op-1
+      na te maken op de echte WS2812-leds.</p>
+
     <h3>Spelen</h3>
     <ul>
-      <li><b>Bewegen:</b> D-pad / <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> (grondvlak) · R-stick ▲▼ / <kbd>I</kbd><kbd>K</kbd> (boven/onder)</li>
-      <li><b>Draaien:</b> L-stick ◀▶ / <kbd>←</kbd><kbd>→</kbd> (richting) + <kbd>Z</kbd>/<kbd>X</kbd>/<kbd>C</kbd>/<kbd>V</kbd> (vlak XY/YZ/XZ/grip)</li>
-      <li><b>4D-rotatie</b> <kbd>Enter</kbd> · <b>undo</b> <kbd>⌫</kbd> · <b>husselen</b> <kbd>Shift+S</kbd> · <b>reset</b> <kbd>Shift+R</kbd></li>
-      <li>Of klik een onderdeel aan voor uitleg + bedrading, of een ledje om een cel te kiezen.</li>
+      <li><b>Bewegen:</b> D-pad / <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> (grondvlak) · R-stick ▲▼ / <kbd>I</kbd><kbd>K</kbd> (boven/onder-kubus)</li>
+      <li><b>Draaien:</b> houd een richting (L-stick ◀▶ / <kbd>←</kbd><kbd>→</kbd>) en kies een vlak <kbd>Z</kbd>/<kbd>X</kbd>/<kbd>C</kbd>/<kbd>V</kbd> (XY/YZ/XZ/grip) — of andersom</li>
+      <li><b>4D-rotatie</b> L3 / <kbd>Enter</kbd> · <b>undo</b> R3 / <kbd>⌫</kbd> · <b>husselen</b> SELECT / <kbd>Shift+S</kbd> · <b>reset</b> START / <kbd>Shift+R</kbd></li>
+      <li>Of klik een <b>onderdeel</b> aan voor uitleg + bedrading, of een <b>ledje</b> om een cel te kiezen. Sleep/scroll = camera.</li>
     </ul>
-    <h3>Hardware &amp; bouw</h3>
-    <p>De volledige bouwhandleiding (onderdelen, pin-voor-pin bedrading, stroombudget, led-volgorde) staat
-      in <code>BEDRADING.md</code>. De engine is wiskundig geverifieerd en draait 1-op-1 op de Arduino.</p>
+
+    <h3>De hardware</h3>
+    <p>Klik links op een onderdeel om te zien wat het is en hoe het is aangesloten (de gekleurde draden
+      lichten dan op). De <b>besturing</b> is een draadloze PS3-controller via een USB Host Shield + BT-dongle
+      (klasse <code>PS3BT</code>); de <b>189 leds</b> hangen aan één datadraad (pin 6, via 330Ω) uit een aparte
+      5V-voeding met power-injectie. De volledige bouwhandleiding — onderdelenlijst, pin-voor-pin bedrading,
+      stroombudget en led-volgorde — staat in <code>BEDRADING.md</code>.</p>
+
+    <h3>Firmware &amp; testen zonder hardware</h3>
+    <p>De geverifieerde 4D-engine draait <b>1-op-1</b> op de Arduino (<code>firmware/</code>). Geen hardware
+      bij de hand? In <b>Wokwi</b> draai je de échte Arduino-code tegen gesimuleerde WS2812-leds in de browser
+      — de logica-testbank <code>firmware/wokwi/sketch.ino</code> (3 joysticks + OLED, want Wokwi kan geen
+      PS3-host simuleren) test de engine én de 189-led-adressering.</p>
+
     <h3>Links</h3>
     <ul>
       <li>Broncode: <a href="https://github.com/janpieterbaalder/4d-rubiks-real" target="_blank" rel="noopener">github.com/janpieterbaalder/4d-rubiks-real</a></li>
       <li>Originele 4D-game: <a href="https://janpieterbaalder.github.io/tesseract-4d-rubiks-cube/" target="_blank" rel="noopener">online spelen ↗</a></li>
+      <li>Wokwi-firmwaresimulatie: <a href="https://wokwi.com/projects/467182062676747265" target="_blank" rel="noopener">de testbank draaien ↗</a></li>
     </ul>
   </aside>
 
@@ -367,7 +392,7 @@
     }
   }
   </script>
-  <script type="module" src="hardware.js?v=4"></script>
+  <script type="module" src="hardware.js?v=5"></script>
   <script>
     // "Over"-tab toggles the project-info overlay (separate from the per-component info panel)
     (function () {

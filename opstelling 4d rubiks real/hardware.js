@@ -455,9 +455,30 @@ let chainGroup = null, chainPulse = null;
   const g = new THREE.Group(); g.position.copy(RIG.OFFSET);
   const ledGeo = new THREE.SphereGeometry(RIG.LED, 14, 12);
 
-  // a stand evoking the physical "+"-cross on a pole
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 9, 14),
-    mat(0x8893a8, { m: 0.5, r: 0.5 })); pole.position.set(0, -RIG.D - 3.6, 0); g.add(pole);
+  // ---- the physical frame (as in the Blender model): 6 rods linking the cubes to the centre,
+  //      and the bottom (D) arm continuing down a pole into a round foot the whole rig rests on.
+  const FRAME = 0x8893a8;                                   // brushed-metal grey
+  const frameMat = () => mat(FRAME, { m: 0.55, r: 0.45 });
+  const UPv = new THREE.Vector3(0, 1, 0);
+  const rod = (from, to, r, seg = 16) => {
+    const a = new THREE.Vector3(...from), b = new THREE.Vector3(...to);
+    const dir = new THREE.Vector3().subVectors(b, a);
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, dir.length(), seg), frameMat());
+    m.position.copy(a).lerp(b, 0.5);
+    m.quaternion.setFromUnitVectors(UPv, dir.clone().normalize());
+    m.userData.shell = true; m.raycast = () => {}; g.add(m); return m;
+  };
+  // 6 connecting rods: centre cube -> each arm cube (centre to centre, like the Blender connectors)
+  for (const slot of ['R', 'L', 'U', 'D', 'F', 'B']) rod([0, 0, 0], SLOTS[slot].pos, 0.09);
+  // the stand: a round foot (flared disc + a domed "log" top) the rig rests on, fed by a pole
+  // continuing down from the bottom (D) cube — mirrors the Blender Pedestal.
+  const FOOT_BOTTOM = -RIG.D - 3.05;                        // local y; ≈ the workbench top in world space
+  const disc = new THREE.Mesh(new THREE.CylinderGeometry(1.7, 2.3, 0.38, 56), frameMat());
+  disc.position.set(0, FOOT_BOTTOM + 0.19, 0); disc.userData.shell = true; disc.raycast = () => {}; g.add(disc);
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(1.7, 44, 22), frameMat());
+  dome.scale.set(1, 0.32, 1); dome.position.set(0, FOOT_BOTTOM + 0.38, 0);
+  dome.userData.shell = true; dome.raycast = () => {}; g.add(dome);
+  rod([0, -RIG.D, 0], [0, FOOT_BOTTOM + 0.85, 0], 0.13);    // the pole, down into the foot's rounded top
 
   for (const slot of SLOT_ORDER) {
     const [cx, cy, cz] = SLOTS[slot].pos;
