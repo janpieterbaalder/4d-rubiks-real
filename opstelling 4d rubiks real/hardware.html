@@ -69,6 +69,24 @@
   #info .close { position: absolute; right: 10px; top: 10px; cursor: pointer;
     color: var(--dim); border: none; background: none; font-size: 18px; line-height: 1; }
   #info .close:hover { color: var(--ink); }
+  /* "Over" overlay — project info for live (GitHub Pages) visitors */
+  #about { position: fixed; left: 50%; top: 60px; transform: translateX(-50%);
+    width: min(560px, 92vw); max-height: 82vh; overflow: auto; z-index: 30;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px 22px 20px; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+  #about.hidden { display: none; }
+  #about h2 { margin: 0 0 4px; font-size: 18px; }
+  #about .sub { color: var(--dim); font-size: 12px; margin: 0 0 12px; }
+  #about h3 { margin: 14px 0 4px; font-size: 11px; text-transform: uppercase;
+    letter-spacing: .6px; color: var(--accent); }
+  #about p { margin: 6px 0; font-size: 13px; line-height: 1.5; }
+  #about ul { margin: 6px 0; padding-left: 18px; font-size: 13px; line-height: 1.5; }
+  #about a { color: var(--accent); }
+  #about kbd { background: #0c1322; border: 1px solid var(--line); border-bottom-width: 2px;
+    border-radius: 5px; padding: 0 5px; font-size: 11px; color: var(--dim); }
+  #about .close { position: absolute; right: 12px; top: 9px; cursor: pointer; background: none;
+    border: none; color: var(--dim); font-size: 22px; line-height: 1; }
+  #about .close:hover { color: var(--ink); }
 
   /* ---- floating 3D labels ---- */
   #labels { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
@@ -190,6 +208,7 @@
 
   <div id="top">
     <span class="pill" id="title">4D&nbsp;Rubiks <small>· hardware &amp; bedrading + speelbare game</small></span>
+    <a class="tab" id="about-tab" style="cursor:pointer">ℹ️ Over</a>
     <a class="tab" href="https://janpieterbaalder.github.io/tesseract-4d-rubiks-cube/" target="_blank" rel="noopener">🎮 Online game ↗</a>
     <span class="pill" id="power-state">Status: <b>AAN</b></span>
     <span class="pill" id="sel-pill">Cel: <b id="sel-label">midden</b></span>
@@ -201,6 +220,32 @@
   <aside id="info" class="hidden">
     <button class="close" id="info-close">×</button>
     <div id="info-body"></div>
+  </aside>
+
+  <aside id="about" class="hidden">
+    <button class="close" id="about-close">×</button>
+    <h2>4D&nbsp;Rubiks — over deze installatie</h2>
+    <p class="sub">Een fysieke 4D-rubikskubus als licht-installatie · 189 WS2812B-leds in 7 kubussen</p>
+    <p>Dit is één 3D-scène met zowel de <b>hardware</b> (Arduino Mega, USB Host Shield + Bluetooth-dongle
+      + draadloze PS3-controller, voeding, weerstand, condensator, schakelaar) als de <b>speelbare game</b>
+      op de 189 led-meshes. <b>Niets beweegt mechanisch</b> — een "draai" verschuift alleen de kleuren van
+      de ledjes (de cellen permuteren wiskundig); je leest de draai af aan een heldere golf die in de
+      draairichting langs de ledjes loopt.</p>
+    <h3>Spelen</h3>
+    <ul>
+      <li><b>Bewegen:</b> D-pad / <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> (grondvlak) · R-stick ▲▼ / <kbd>I</kbd><kbd>K</kbd> (boven/onder)</li>
+      <li><b>Draaien:</b> L-stick ◀▶ / <kbd>←</kbd><kbd>→</kbd> (richting) + <kbd>Z</kbd>/<kbd>X</kbd>/<kbd>C</kbd>/<kbd>V</kbd> (vlak XY/YZ/XZ/grip)</li>
+      <li><b>4D-rotatie</b> <kbd>Enter</kbd> · <b>undo</b> <kbd>⌫</kbd> · <b>husselen</b> <kbd>Shift+S</kbd> · <b>reset</b> <kbd>Shift+R</kbd></li>
+      <li>Of klik een onderdeel aan voor uitleg + bedrading, of een ledje om een cel te kiezen.</li>
+    </ul>
+    <h3>Hardware &amp; bouw</h3>
+    <p>De volledige bouwhandleiding (onderdelen, pin-voor-pin bedrading, stroombudget, led-volgorde) staat
+      in <code>BEDRADING.md</code>. De engine is wiskundig geverifieerd en draait 1-op-1 op de Arduino.</p>
+    <h3>Links</h3>
+    <ul>
+      <li>Broncode: <a href="https://github.com/janpieterbaalder/4d-rubiks-real" target="_blank" rel="noopener">github.com/janpieterbaalder/4d-rubiks-real</a></li>
+      <li>Originele 4D-game: <a href="https://janpieterbaalder.github.io/tesseract-4d-rubiks-cube/" target="_blank" rel="noopener">online spelen ↗</a></li>
+    </ul>
   </aside>
 
   <div id="hint">Sleep = draaien · scrollwiel indrukken + slepen = verschuiven · scroll = zoomen · klik een <b>onderdeel</b> voor info · speel met de <b>controller</b> of toetsenbord (WASD/IK = bewegen, ←/→ + Z/X/C/V = draaien)</div>
@@ -323,5 +368,15 @@
   }
   </script>
   <script type="module" src="hardware.js?v=4"></script>
+  <script>
+    // "Over"-tab toggles the project-info overlay (separate from the per-component info panel)
+    (function () {
+      var tab = document.getElementById('about-tab');
+      var panel = document.getElementById('about');
+      var close = document.getElementById('about-close');
+      if (tab && panel) tab.addEventListener('click', function () { panel.classList.toggle('hidden'); });
+      if (close && panel) close.addEventListener('click', function () { panel.classList.add('hidden'); });
+    })();
+  </script>
 </body>
 </html>
