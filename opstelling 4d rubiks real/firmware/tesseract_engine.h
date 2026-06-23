@@ -351,4 +351,23 @@ static void printWiringChart() {
   }
 }
 
+// ============================================================================
+//  freeRam() — bytes of SRAM still free (the gap between the heap top and the stack).
+//  SRAM headroom is the tight resource on an Arduino Mega (8 KB): engine + LED + animation
+//  buffers already use ~5 KB, and the rig firmware adds the USB Host Shield / PS3BT stack on
+//  top of that. Print it once in setup() and watch it during play — if it drops near zero the
+//  sketch will misbehave or reset-loop. On a non-AVR target (e.g. ESP32, 520 KB) it returns
+//  -1: there is so much RAM that this crude probe is neither needed nor meaningful.
+// ============================================================================
+#ifdef __AVR__
+extern char __heap_start;
+extern char *__brkval;
+static int freeRam() {
+  char top;
+  return (int)(&top - (__brkval ? __brkval : &__heap_start));
+}
+#else
+static int freeRam() { return -1; }
+#endif
+
 #endif // TESSERACT_ENGINE_H

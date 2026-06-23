@@ -370,6 +370,7 @@ void setup() {
   randomSeed(analogRead(A8) ^ micros());
 
   printWiringChart();    // one-time solder map over Serial (115200 baud) — see BEDRADING.md §5
+  Serial.print(F("Vrij SRAM na init (byte): ")); Serial.println(freeRam());   // Mega heeft 8192; houd ruime marge
   Serial.println(F("Druk de PS-knop op de gekoppelde PS3-controller. Mapping: zie hardware.html / BEDRADING.md."));
   renderStatic(); FastLED.show();
 }

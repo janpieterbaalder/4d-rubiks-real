@@ -52,6 +52,12 @@ plus bij randcellen een **180°-flip** en bij hoekcellen een **±120°-spin**. C
 alleen de 4D-rotatie. Een vlak "armeer" je met een face-knop en voer je uit met een richting (of
 andersom) — net als op de echte controller.
 
+> ℹ️ **Let op bij de grip (180°-flip / ±120°-spin):** je selecteert weliswaar een rand- of
+> hoek-cubie, maar de zet **roteert de hele cel** (alle 27 ledjes van die kubus) om de bijbehorende
+> ribbe- of lichaamsdiagonaal. Dat is geen los-blokje-draai maar een geldige celrotatie: ze ligt in
+> de 24-elementen rotatiegroep van de kubus (geverifieerd in `game/test/math.test.js`). De
+> geselecteerde cubie bepaalt enkel *welke* as.
+
 ### Oriëntatie: een getrouwe (niet-getaperde) kopie van de game
 Elke kubus staat **exact georiënteerd zoals de game de bijbehorende cel projecteert**
 (`engine.ORIENT`, afgeleid uit de 4D→3D-`project()` en in `engine.test.js` gecontroleerd
@@ -79,9 +85,10 @@ de WS2812-leds** (de Arduino voert exact dezelfde golf uit).
 | `engine.test.js` | 28 controles die bewijzen dat de engine-port klopt, incl. ORIENT == game-projectie (`node engine.test.js`) |
 | `hardware.html` + `hardware.js` | **De enige ingang**: interactieve 3D-werkbank (klik elk onderdeel voor uitleg + bedrading, gekleurde draadjes + stroom-/data-animatie) **én** de speelbare game op de 189 led-meshes (PS3-controller-widget + toetsenbord) |
 | `BEDRADING.md` | Bouwhandleiding: BOM, pin-voor-pin tabel, stroombudget, led-volgorde, bouw-/testvolgorde |
-| `firmware/tesseract_rig.ino` | Arduino-firmware (Mega): leds + **PS3-controller (PS3BT via USB Host Shield)** + draai-animatie |
-| `firmware/tesseract_engine.h` | De 4D-engine in C++ (1-op-1 port van `engine.js`) — single source of truth voor de wiskunde + de led-soldeerkaart |
-| `firmware/wokwi/sketch.ino` | Wokwi-logica-testbank (3 joysticks + OLED): zelfde engine/leds, want Wokwi kan geen PS3-host simuleren — zie `firmware/wokwi/README-wokwi.md` |
+| `firmware/esp32_bluepad32/esp32_bluepad32.ino` | **Aanbevolen rig-firmware**: ESP32 + draadloze controller via **Bluepad32** (ingebouwde Bluetooth, geen shield/dongle) — zie `firmware/esp32_bluepad32/README-esp32.md` |
+| `firmware/tesseract_rig.ino` | Alternatieve rig-firmware (Mega): leds + **PS3-controller (PS3BT via USB Host Shield)** + draai-animatie |
+| `firmware/tesseract_engine.h` | De 4D-engine in C++ (1-op-1 port van `engine.js`) — single source of truth voor de wiskunde + de led-soldeerkaart + `freeRam()` |
+| `firmware/wokwi/sketch.ino` | Wokwi-logica-testbank (PS3-layout nagebootst: 2 sticks + D-pad + face-knoppen + OLED): zelfde engine/leds/besturing, want Wokwi kan geen draadloze controller simuleren — zie `firmware/wokwi/README-wokwi.md` |
 | `serve.py` | Dev-server zonder caching |
 | `preview-*.png` | Referentiebeelden (opgelost / gehusseld) |
 

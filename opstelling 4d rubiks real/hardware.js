@@ -429,8 +429,8 @@ const SLOTS = {
   L: { view: 'X-', nl: 'links',  pos: [-RIG.D, 0, 0],     centre: [-3, 0, 0] },
   U: { view: 'Y+', nl: 'boven',  pos: [ 0, RIG.D, 0],     centre: [ 0, 3, 0] },
   D: { view: 'Y-', nl: 'onder',  pos: [ 0,-RIG.D, 0],     centre: [ 0,-3, 0] },
-  B: { view: 'Z-', nl: 'noord',  pos: [ 0, 0,-RIG.D],     centre: [ 0, 0,-3] },
-  F: { view: 'Z+', nl: 'zuid',   pos: [ 0, 0, RIG.D],     centre: [ 0, 0, 3] },
+  B: { view: 'Z-', nl: 'achter', pos: [ 0, 0,-RIG.D],     centre: [ 0, 0,-3] },
+  F: { view: 'Z+', nl: 'voor',   pos: [ 0, 0, RIG.D],     centre: [ 0, 0, 3] },
 };
 const SLOT_ORDER = ['C', 'R', 'L', 'U', 'D', 'F', 'B'];
 

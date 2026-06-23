@@ -1,37 +1,46 @@
 /* ============================================================================
-   sketch.ino — WOKWI LOGIC-TEST variant (3 joysticks + OLED).
+   sketch.ino — WOKWI LOGIC-TEST variant (PS3-layout nagebootst met losse onderdelen).
    ----------------------------------------------------------------------------
    This is the *Wokwi* build. Wokwi cannot simulate a USB host / PS3 controller,
-   so this variant keeps the original 3-joystick + OLED input so you can still
-   logic-test the engine, the 189-LED addressing and the permutation-wave in the
-   browser. The REAL rig firmware is ../tesseract_rig.ino, which drives the same
-   engine + LEDs from a wireless PS3 controller (PS3BT) over a USB Host Shield —
-   see BEDRADING.md. Both sketches share the SAME tesseract_engine.h (the single
-   source of truth for the math + the LED solder map), so what you verify here
-   about colours/addressing holds 1:1 on the rig.
+   so this variant rebuilds the SAME control surface as the wireless rig out of
+   parts Wokwi *can* simulate: two analog sticks + a D-pad + four face buttons +
+   SELECT/START. The mapping, the as-native navigation and the "arm a plane, then
+   give a direction" rotation model are now IDENTICAL to ../tesseract_rig.ino and
+   to the 3D bench (hardware.html) — only the wireless link is faked. So what you
+   verify here about colours, addressing AND the controls now matches the rig 1:1.
 
-   Arduino Mega 2560. Drives 189 WS2812B LEDs (7 cubes × 27), reads 3 analogue
-   joysticks + their buttons + 2 extra buttons, and shows the move notation on an
-   I²C OLED. The puzzle MATH lives in tesseract_engine.h (a 1:1 port of the verified
-   engine.js), so a turn behaves exactly like the game and the 3D simulator.
+   Both sketches share the SAME tesseract_engine.h (the single source of truth for
+   the math + the LED solder map). The puzzle MATH lives there (a 1:1 port of the
+   verified engine.js), so a turn behaves exactly like the game and the simulator.
 
    NOTHING MOVES MECHANICALLY — a "turn" only changes LED COLOURS. The eye reads the
    turn from a bright wave that sweeps along the real permutation cycle (same trick as
-   the simulator), so you can follow it even on a solved (single-colour) cube.
+   the rig), so you can follow it even on a solved (single-colour) cube.
 
    ---- LIBRARIES (install via Arduino IDE → Library Manager) ------------------
      FastLED                         (LED driver + automatic power limiting)
-     Adafruit SSD1306 + Adafruit GFX (OLED)
+     Adafruit SSD1306 + Adafruit GFX (OLED status HUD — handy in the sim; the real
+                                      rig has no OLED, the 189 LEDs are the display)
    Wire.h and the engine header come with the sketch.
 
-   ---- WIRING (see BEDRADING.md for the full table + diagram) ----------------
+   ---- WIRING (see diagram.json + BEDRADING.md) ------------------------------
      LED data    : pin 6  -> 330Ω -> DIN of LED #0   (5V data, no level shifter on Mega)
-     Joystick A  : VRx A0, VRy A1, SW pin 22   (horizontal move ; press = 4D rotation)
-     Joystick B  : VRy A2, VRx A3, SW pin 23   (vertical move    ; press = undo)
-     Joystick C  : VRy A4, VRx A5, SW pin 24   (scroll menu      ; press = execute turn)
-     Scramble btn: pin 26   Reset btn: pin 28   (to GND, INPUT_PULLUP)
+     L-stick     : VRx A0, SW pin 22   (X = rotation direction −/+ ; press L3 = 4D rotation)
+     R-stick     : VRy A3, SW pin 23   (Y = up/down cube U/D       ; press R3 = undo)
+     D-pad       : N pin 30, S pin 31, W pin 32, E pin 33   (ground plane: x and z)
+     Face buttons: □ pin 34, ✕ pin 35, ○ pin 36, △ pin 37   (vlak XY / YZ / XZ / grip)
+     SELECT/START: pin 26 (husselen) / pin 28 (reset)
      OLED        : SDA 20, SCL 21 (I²C, addr 0x3C)
      Power       : separate 5V supply -> LEDs (+ a 1000µF cap and common GND with the Mega)
+
+   ---- CONTROLLER MAPPING (mirrors ../tesseract_rig.ino / hardware.html) ------
+     D-pad ▲▼◀▶          : move the selection N/S/W/E (ground plane: x and z)
+     R-stick ▲ / ▼       : move to the up- / down-cube (U/D, the y-axis)
+     R-stick press (R3)  : undo
+     L-stick ◀ / ▶       : rotation direction (−/+); hold it, then tap a face button
+     L-stick press (L3)  : 4D rotation (on an arm-cube's centre cell)
+     △ / □ / ○ / ✕       : grip / plane 0 (XY) / plane 2 (XZ) / plane 1 (YZ)
+     SELECT / START      : husselen / reset
    ========================================================================== */
 #include <FastLED.h>
 #include <Wire.h>
@@ -41,85 +50,109 @@
 
 // ----------------------------------------------------------------- pins
 #define LED_PIN        6
-#define JOYA_X A0
-#define JOYA_Y A1
-#define JOYA_SW 22
-#define JOYB_Y A2
-#define JOYB_X A3
-#define JOYB_SW 23
-#define JOYC_Y A4
-#define JOYC_X A5
-#define JOYC_SW 24
-#define BTN_SCRAMBLE   26
-#define BTN_RESET      28
+#define LSTICK_X       A0       // rotation direction (−/+)
+#define LSTICK_SW      22       // L3 = 4D rotation
+#define RSTICK_Y       A3       // up/down cube (U/D)
+#define RSTICK_SW      23       // R3 = undo
+#define BTN_N          30       // D-pad ▲  (achter, z−)
+#define BTN_S          31       // D-pad ▼  (voor,   z+)
+#define BTN_W          32       // D-pad ◀  (links,  x−)
+#define BTN_E          33       // D-pad ▶  (rechts, x+)
+#define BTN_SQUARE     34       // □  vlak 0 (XY)
+#define BTN_CROSS      35       // ✕  vlak 1 (YZ)
+#define BTN_CIRCLE     36       // ○  vlak 2 (XZ)
+#define BTN_TRIANGLE   37       // △  grip (ribbe 180° / hoek ±120°)
+#define BTN_SELECT     26       // husselen
+#define BTN_START      28       // reset
 
 // ----------------------------------------------------------------- tuning
 #define FASTLED_MAX_MA 6000     // FastLED software brightness-scaling target — NOT a hardware fuse (see BEDRADING.md §4)
 #define LED_BRIGHTNESS 200      // global master brightness 0..255
 #define TWIST_MS       1500UL   // duration of one turn's colour sweep
-#define AX_DEAD        220      // joystick dead-zone around centre (0..511)
-#define AX_RECENTER    90       // must return within this of centre before it can fire again
+#define AX_DEAD        240      // joystick dead-zone around centre (0..1023, centre ~512)
 
 // brightness levels (emissive feel) for the static display
 #define I_BASE     60           // other cubes
 #define I_SELCUBE  110          // the selected cube
 #define I_SEL      235          // the selected cell
 
-// ---- input types declared up here so Arduino's auto-prototypes resolve them ----
-struct Axis   { uint8_t pin; bool latched; };
-struct Button { uint8_t pin; bool prev; uint32_t tEdge; };
-
 // ----------------------------------------------------------------- objects
 CRGB leds[NLED];
 Adafruit_SSD1306 oled(128, 64, &Wire, -1);
 Tesseract puzzle;
 
-// ----------------------------------------------------------------- per-slot tables (legacy JP-scheme nav for this Wokwi build; the rig firmware ../tesseract_rig.ino uses the as-native scheme)
-// view axis/sign used by viewToLogical, and the cube's global-coordinate centre.
+// ----------------------------------------------------------------- per-slot tables (as-native, identical to ../tesseract_rig.ino)
+// view axis/sign used by viewToLogical, and the cube's global-coordinate centre. The centre uses the
+// as-native scheme: engine X→x, Y→y, Z→z (so U is +y, F is +z, etc.) — exactly like the rig + bench.
 struct SlotInfo { int8_t vAxis, vSign; int8_t cx, cy, cz; const char *nl; };
 const SlotInfo SLOTS[NSLOT] = {
   /* C */ { AX_W, -1,  0,  0,  0, "midden" },
   /* R */ { AX_X, +1,  3,  0,  0, "rechts" },
   /* L */ { AX_X, -1, -3,  0,  0, "links"  },
-  /* U */ { AX_Y, +1,  0,  0,  3, "boven"  },
-  /* D */ { AX_Y, -1,  0,  0, -3, "onder"  },
-  /* F */ { AX_Z, +1,  0, -3,  0, "voor"   },
-  /* B */ { AX_Z, -1,  0,  3,  0, "achter" },
+  /* U */ { AX_Y, +1,  0,  3,  0, "boven"  },
+  /* D */ { AX_Y, -1,  0, -3,  0, "onder"  },
+  /* F */ { AX_Z, +1,  0,  0,  3, "voor"   },
+  /* B */ { AX_Z, -1,  0,  0, -3, "achter" },
 };
 const char *CELL_LABEL[8] = { "Right", "Left", "Top", "Bottom", "Front", "Back", "Outer", "Inner" };
 const char *POS_LABEL[4]  = { "kern", "vlak", "rand", "hoek" };
+const char  AXC[4]        = { 'X', 'Y', 'Z', 'W' };
 
 // ----------------------------------------------------------------- state
 int8_t selSlot = SLOT_C, selIdx = 13;   // 13 = centre cubie of cube C
-uint8_t j3idx = 0;                       // highlighted rotation-menu item
 bool scrambledOnce = false, solved = true;
 uint16_t moveCount = 0;
 
-// ----------------------------------------------------------------- helpers (engine.js-equivalent, JP-scheme nav)
+// rotation interaction (port of ../tesseract_rig.ino / hardware.js): a plane is "armed" by a face
+// button and fired by a direction, OR a held direction + a face button fires immediately.
+int8_t armDir   = 0;    // -1 / +1 / 0 — rotation direction currently held on the L-stick
+int8_t armPlane = -1;   // 0/1/2 = plane, 3 = grip, -1 = none armed
+int8_t lStickState = 0; // hysteresis latch for the L-stick X (direction)
+int8_t rStickState = 0; // hysteresis latch for the R-stick Y (U/D movement)
+
+// ----------------------------------------------------------------- helpers (port of ../tesseract_rig.ino)
 void decodeVi(int idx, int &i, int &j, int &k) { i = (idx % 3) - 1; j = ((idx / 3) % 3) - 1; k = (idx / 9) - 1; }
 int  nzCount(int idx) { int i, j, k; decodeVi(idx, i, j, k); return (i != 0) + (j != 0) + (k != 0); }
 bool isCentreCell(int slot, int idx) { return slot != -1 && idx == 13; }
 
+// global lattice coord of (slot,idx) = cube centre + the physical ORIENT offset (as-native).
 void gcoord(int slot, int idx, int &gx, int &gy, int &gz) {
-  int i, j, k; decodeVi(idx, i, j, k);
-  gx = SLOTS[slot].cx + i; gy = SLOTS[slot].cy - k; gz = SLOTS[slot].cz + j;
+  int8_t ox, oy, oz; orientOf(slot, idx, ox, oy, oz);     // engine.h solder-map offset, in {-1,0,1}
+  gx = SLOTS[slot].cx + ox; gy = SLOTS[slot].cy + oy; gz = SLOTS[slot].cz + oz;
 }
-// inverse: global (gx,gy,gz) -> slot/idx, or returns false if no cell there
+
+// inverse of ORIENT per cube: a physical (x,y,z) offset inside a cube -> in-cube (i,j,k).
+// Mirrors ORIENT_INV in hardware.js (the exact inverse of orientOf in tesseract_engine.h).
+void orientInv(int slot, int x, int y, int z, int &i, int &j, int &k) {
+  switch (slot) {
+    case SLOT_C: i =  x; j =  y; k =  z; break;   // ORIENT.C = [i,j,k]
+    case SLOT_R: i =  y; j =  z; k =  x; break;   // ORIENT.R = [k,i,j]
+    case SLOT_L: i =  y; j =  z; k = -x; break;   // ORIENT.L = [-k,i,j]
+    case SLOT_U: i =  x; j =  z; k =  y; break;   // ORIENT.U = [i,k,j]
+    case SLOT_D: i =  x; j =  z; k = -y; break;   // ORIENT.D = [i,-k,j]
+    case SLOT_F: i =  x; j =  y; k =  z; break;   // ORIENT.F = [i,j,k]
+    case SLOT_B: i =  x; j =  y; k = -z; break;   // ORIENT.B = [i,j,-k]
+  }
+}
+// inverse: global (gx,gy,gz) -> slot/idx, or returns false if no cell there. Arm axes match the
+// physical layout: R/L on x, U/D on y, F/B on z (same as hardware.js cellAt).
 bool cellAt(int gx, int gy, int gz, int8_t &slot, int8_t &idx) {
   auto farf = [](int a) -> int { return a >= 2 ? 1 : (a <= -2 ? -1 : 0); };
   int fx = farf(gx), fy = farf(gy), fz = farf(gz);
-  if (abs(fx) + abs(fy) + abs(fz) > 1) return false;            // diagonal: no cube
-  int s = SLOT_C, lx = gx, ly = gy, lz = gz;
-  if (fx)      { s = fx > 0 ? SLOT_R : SLOT_L; lx = gx - 3 * fx; }
-  else if (fy) { s = fy > 0 ? SLOT_B : SLOT_F; ly = gy - 3 * fy; }
-  else if (fz) { s = fz > 0 ? SLOT_U : SLOT_D; lz = gz - 3 * fz; }
-  if (lx < -1 || lx > 1 || ly < -1 || ly > 1 || lz < -1 || lz > 1) return false;
-  int v0 = lx, v1 = lz, v2 = -ly;                              // (i,j,k)
-  slot = s; idx = (v0 + 1) + 3 * (v1 + 1) + 9 * (v2 + 1);
+  if (abs(fx) + abs(fy) + abs(fz) > 1) return false;            // diagonal: not inside one cube
+  int s = SLOT_C;
+  if (fx)      s = fx > 0 ? SLOT_R : SLOT_L;
+  else if (fy) s = fy > 0 ? SLOT_U : SLOT_D;
+  else if (fz) s = fz > 0 ? SLOT_F : SLOT_B;
+  int i, j, k;
+  orientInv(s, gx - SLOTS[s].cx, gy - SLOTS[s].cy, gz - SLOTS[s].cz, i, j, k);
+  if (i < -1 || i > 1 || j < -1 || j > 1 || k < -1 || k > 1) return false;
+  slot = s; idx = (i + 1) + 3 * (j + 1) + 9 * (k + 1);
   return true;
 }
 
-// the in-cell grip axis u for the selected cubie (same view-space math as the rig firmware)
+// the in-cell grip axis u for the selected cubie (port of ../tesseract_rig.ino gripAxis). Works purely
+// in view/logical space, so it is independent of the global navigation scheme.
 void gripAxis(int8_t &d, int8_t &sd, float u[3]) {
   int8_t va = SLOTS[selSlot].vAxis;
   int A[3], n = 0; for (int a = 0; a < 4; a++) if (a != va) A[n++] = a;   // 3 in-cube view axes
@@ -133,33 +166,16 @@ void gripAxis(int8_t &d, int8_t &sd, float u[3]) {
   }
 }
 
-// ----------------------------------------------------------------- rotation menu (Wokwi joystick build; the rig uses face buttons instead)
-struct MenuOpt { uint8_t kind; int8_t planeIdx, dir; float theta; char label[18]; };  // kind 0=plane 1=grip
-MenuOpt menu[8]; uint8_t menuN = 0;
-
-void buildMenu() {
-  menuN = 0;
-  if (isCentreCell(selSlot, selIdx)) return;
+// label of plane `p` for the currently selected cell (e.g. "XY", "YW"), for the OLED HUD
+void planeLabel(int p, char out[3]) {
+  out[0] = out[1] = '?'; out[2] = 0;
   int8_t d, sd; puzzle.viewToLogical(SLOTS[selSlot].vAxis, SLOTS[selSlot].vSign, d, sd);
   int8_t planes[3][2]; planesFor(d, planes);
-  const char axc[4] = { 'X', 'Y', 'Z', 'W' };
-  for (int p = 0; p < 3; p++) {
-    for (int dir = 1; dir >= -1; dir -= 2) {
-      MenuOpt &o = menu[menuN++]; o.kind = 0; o.planeIdx = p; o.dir = dir;
-      snprintf(o.label, sizeof(o.label), "vlak %c%c %c90", axc[planes[p][0]], axc[planes[p][1]], dir > 0 ? '+' : '-');
-    }
-  }
-  int nz = nzCount(selIdx);
-  if (nz == 2) { MenuOpt &o = menu[menuN++]; o.kind = 1; o.theta = PI; strncpy(o.label, "ribbe-flip 180", sizeof(o.label)); }
-  if (nz == 3) {
-    MenuOpt &a = menu[menuN++]; a.kind = 1; a.theta =  2.0f * PI / 3.0f; strncpy(a.label, "hoek-spin +120", sizeof(a.label));
-    MenuOpt &b = menu[menuN++]; b.kind = 1; b.theta = -2.0f * PI / 3.0f; strncpy(b.label, "hoek-spin -120", sizeof(b.label));
-  }
-  if (j3idx >= menuN) j3idx = 0;
+  out[0] = AXC[planes[p][0]]; out[1] = AXC[planes[p][1]];
 }
 
 // ============================================================================
-//  LED rendering + the permutation-wave move animation
+//  LED rendering + the permutation-wave move animation  (unchanged from the rig twin)
 // ============================================================================
 uint8_t  curKey[NPOS];          // colour-key currently shown per position
 uint16_t gIdScan[NPOS];         // shared scratch for puzzle.scan() (used one-at-a-time)
@@ -260,7 +276,12 @@ bool renderAnim() {
   return k < 1;
 }
 
-// ----------------------------------------------------------------- move actions
+// ----------------------------------------------------------------- move actions (port of ../tesseract_rig.ino)
+void afterMove() {
+  if (scrambledOnce) moveCount++;
+  solved = puzzle.isSolved();
+  beginAnim();
+}
 void doTwist(int planeIdx, int dir) {
   int8_t d, sd; puzzle.viewToLogical(SLOTS[selSlot].vAxis, SLOTS[selSlot].vSign, d, sd);
   captureBefore(); puzzle.twist(d, sd, planeIdx, dir); afterMove();
@@ -269,54 +290,88 @@ void doGrip(float theta) {
   int8_t d, sd; float u[3]; gripAxis(d, sd, u);
   captureBefore(); puzzle.grip(d, sd, u, theta); afterMove();
 }
-void afterMove() {
-  if (scrambledOnce) moveCount++;
-  solved = puzzle.isSolved();
-  beginAnim();
+
+// a rotation = a plane (or grip) combined with a direction (port of hardware.js execRotation)
+void execRotation(int plane, int dir) {
+  if (isCentreCell(selSlot, selIdx)) return;
+  if (plane == 3) {                                   // grip
+    int nz = nzCount(selIdx);
+    if (nz == 2) doGrip(PI);                          // edge: 180° (its own inverse)
+    else if (nz == 3) doGrip(dir * 2.0f * PI / 3.0f); // corner: ±120°
+  } else {
+    doTwist(plane, dir);                              // plane 0/1/2: always valid for a non-centre cell
+  }
 }
-void execMenu() {
-  buildMenu(); if (menuN == 0) return;
-  MenuOpt &o = menu[j3idx % menuN];
-  if (o.kind == 0) doTwist(o.planeIdx, o.dir); else doGrip(o.theta);
+void setDir(int d) { armDir = d; if (armPlane != -1) { execRotation(armPlane, d); armPlane = -1; } }
+void clearDir(int d) { if (armDir == d) armDir = 0; }
+void pressPlane(int p) {
+  if (isCentreCell(selSlot, selIdx)) return;
+  if (p == 3) { int nz = nzCount(selIdx); if (nz != 2 && nz != 3) return; }  // grip only on edge/corner
+  if (armDir != 0) execRotation(p, armDir);          // direction already held -> rotate now
+  else armPlane = (armPlane == p ? -1 : p);          // else arm the plane, wait for a direction
 }
-// tap joystick A on an arm cube's centre cell -> that cube becomes central (4D rotation)
+
+// tap L-stick (L3) on an arm cube's centre cell -> that cube becomes central (4D rotation)
 void press4D() {
   if (selSlot != SLOT_C && isCentreCell(selSlot, selIdx)) {
     int8_t d, sd; puzzle.viewToLogical(SLOTS[selSlot].vAxis, SLOTS[selSlot].vSign, d, sd);
-    captureBefore(); puzzle.centerCell(d, sd); selSlot = SLOT_C; selIdx = 13; beginAnim();
+    captureBefore(); puzzle.centerCell(d, sd); selSlot = SLOT_C; selIdx = 13; armPlane = -1; beginAnim();
   }
+}
+void doUndo() {
+  captureBefore();
+  if (puzzle.undo()) { solved = puzzle.isSolved(); beginAnim(); }
 }
 void moveSel(int dx, int dy, int dz) {
   int gx, gy, gz; gcoord(selSlot, selIdx, gx, gy, gz);
   int8_t ns, ni;
-  if (cellAt(gx + dx, gy + dy, gz + dz, ns, ni)) { selSlot = ns; selIdx = ni; j3idx = 0; }
+  if (cellAt(gx + dx, gy + dy, gz + dz, ns, ni)) { selSlot = ns; selIdx = ni; armPlane = -1; }
 }
-void scrollMenu(int step) { buildMenu(); if (menuN) j3idx = (j3idx + step + menuN) % menuN; }
-
-void doScramble() { puzzle.resetView(); puzzle.scramble(26); scrambledOnce = true; solved = false; moveCount = 0; selSlot = SLOT_C; selIdx = 13; j3idx = 0; renderStatic(); }
-void doReset()    { puzzle.reset(); puzzle.resetView(); scrambledOnce = false; solved = true; moveCount = 0; selSlot = SLOT_C; selIdx = 13; j3idx = 0; renderStatic(); }
+void doScramble() { puzzle.resetView(); puzzle.scramble(26); scrambledOnce = true; solved = false; moveCount = 0; selSlot = SLOT_C; selIdx = 13; armPlane = -1; renderStatic(); }
+void doReset()    { puzzle.reset(); puzzle.resetView(); scrambledOnce = false; solved = true; moveCount = 0; selSlot = SLOT_C; selIdx = 13; armPlane = -1; renderStatic(); }
 
 // ============================================================================
-//  INPUT — analogue joysticks (latched) + debounced buttons
+//  INPUT — two analog sticks (latched) + debounced buttons
 // ============================================================================
-int axisDir(Axis &ax) {                 // returns -1 / 0 / +1, fires once per push
-  int v = analogRead(ax.pin) - 512;
-  if (!ax.latched && abs(v) > AX_DEAD) { ax.latched = true; return v > 0 ? 1 : -1; }
-  if (abs(v) < AX_RECENTER) ax.latched = false;
-  return 0;
-}
-Axis axAx = { JOYA_X }, axAy = { JOYA_Y }, axBy = { JOYB_Y }, axCy = { JOYC_Y };
-
+struct Button { uint8_t pin; bool prev; uint32_t tEdge; };
 bool pressed(Button &b) {               // true once on a clean press (active-low)
   bool down = digitalRead(b.pin) == LOW;
   bool fire = false;
   if (down != b.prev && millis() - b.tEdge > 25) { b.tEdge = millis(); if (down) fire = true; b.prev = down; }
   return fire;
 }
-Button bA = { JOYA_SW }, bB = { JOYB_SW }, bC = { JOYC_SW }, bScr = { BTN_SCRAMBLE }, bRst = { BTN_RESET };
+Button bN = { BTN_N }, bS = { BTN_S }, bW = { BTN_W }, bE = { BTN_E };
+Button bSquare = { BTN_SQUARE }, bCross = { BTN_CROSS }, bCircle = { BTN_CIRCLE }, bTriangle = { BTN_TRIANGLE };
+Button bL3 = { LSTICK_SW }, bR3 = { RSTICK_SW }, bSelect = { BTN_SELECT }, bStart = { BTN_START };
+
+// L-stick X = held rotation direction (−/+). It is a LEVEL (held), so we act on each change of
+// the dead-zoned state: enter ±X arms a direction (and fires an armed plane), return to centre clears it.
+void readDirectionStick() {
+  int lx = analogRead(LSTICK_X) - 512;                // 0..1023, centre ~512
+  int dir = (lx < -AX_DEAD) ? -1 : (lx > AX_DEAD) ? +1 : 0;
+  if (dir != lStickState) {
+    if (lStickState != 0) clearDir(lStickState);
+    if (dir != 0) setDir(dir);
+    lStickState = dir;
+  }
+}
+// R-stick Y = move to the up-/down-cube. One move per push: fires on the threshold crossing, then
+// needs a return to centre before it can fire again (the dead-zoned state must change).
+// NB: if up/down feels inverted in the sim, swap the two signs below — it's just the stick polarity.
+bool readVerticalStick() {
+  int ry = analogRead(RSTICK_Y) - 512;
+  int dir = (ry > AX_DEAD) ? +1 : (ry < -AX_DEAD) ? -1 : 0;   // up = +y (U), down = −y (D)
+  bool moved = false;
+  if (dir != rStickState) {
+    if (dir == +1)      { moveSel(0,  1, 0); moved = true; }   // U (boven)
+    else if (dir == -1) { moveSel(0, -1, 0); moved = true; }   // D (onder)
+    rStickState = dir;
+  }
+  return moved;
+}
 
 // ============================================================================
-//  OLED HUD (mirrors the notation screen in the simulator)
+//  OLED HUD (status; the real rig has no OLED — the 189 LEDs are the display)
 // ============================================================================
 void drawHUD() {
   oled.clearDisplay();
@@ -330,17 +385,19 @@ void drawHUD() {
   oled.setCursor(0, 10); oled.print(SLOTS[selSlot].nl); oled.print(" / "); oled.print(POS_LABEL[nzCount(selIdx)]);
   oled.drawFastHLine(0, 20, 128, SSD1306_WHITE);
 
-  buildMenu();
+  oled.setCursor(0, 24);
   if (isCentreCell(selSlot, selIdx)) {
-    oled.setCursor(0, 24);
     if (selSlot == SLOT_C) oled.print("centrale cel 0'");
-    else { oled.print("centrale cel"); oled.setCursor(0, 34); oled.print("druk A = 4D-rotatie"); }
+    else { oled.print("centrale cel"); oled.setCursor(0, 34); oled.print("L3 = 4D-rotatie"); }
   } else {
-    int top = j3idx >= 3 ? j3idx - 2 : 0;                  // simple scroll window
-    for (int r = 0; r < 3 && top + r < menuN; r++) {
-      int i = top + r; oled.setCursor(0, 24 + r * 10);
-      oled.print(i == j3idx ? '>' : ' '); oled.print(' '); oled.print(menu[i].label);
-    }
+    // show the armed plane + held direction (the "arm a plane, give a direction" model)
+    oled.print("vlak: ");
+    if (armPlane == -1) oled.print("(geen)");
+    else if (armPlane == 3) oled.print(nzCount(selIdx) == 2 ? "grip 180" : "grip 120");
+    else { char lab[3]; planeLabel(armPlane, lab); oled.print(lab); }
+    oled.setCursor(0, 34); oled.print("richting: ");
+    oled.print(armDir == 0 ? "-" : (armDir > 0 ? "+ (rechts)" : "- (links)"));
+    oled.setCursor(0, 44); oled.print("face=armeer  stick=draai");
   }
   oled.setCursor(0, 56);
   oled.print(solved ? "opgelost" : "bezig"); oled.print("  z:"); oled.print(moveCount);
@@ -352,8 +409,11 @@ void drawHUD() {
 // ============================================================================
 void setup() {
   Serial.begin(115200);
-  pinMode(JOYA_SW, INPUT_PULLUP); pinMode(JOYB_SW, INPUT_PULLUP); pinMode(JOYC_SW, INPUT_PULLUP);
-  pinMode(BTN_SCRAMBLE, INPUT_PULLUP); pinMode(BTN_RESET, INPUT_PULLUP);
+  pinMode(LSTICK_SW, INPUT_PULLUP); pinMode(RSTICK_SW, INPUT_PULLUP);
+  pinMode(BTN_N, INPUT_PULLUP); pinMode(BTN_S, INPUT_PULLUP); pinMode(BTN_W, INPUT_PULLUP); pinMode(BTN_E, INPUT_PULLUP);
+  pinMode(BTN_SQUARE, INPUT_PULLUP); pinMode(BTN_CROSS, INPUT_PULLUP);
+  pinMode(BTN_CIRCLE, INPUT_PULLUP); pinMode(BTN_TRIANGLE, INPUT_PULLUP);
+  pinMode(BTN_SELECT, INPUT_PULLUP); pinMode(BTN_START, INPUT_PULLUP);
   randomSeed(analogRead(A8) ^ micros());
 
   FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, NLED).setCorrection(TypicalLEDStrip);
@@ -364,6 +424,7 @@ void setup() {
   oled.clearDisplay(); oled.display();
 
   printWiringChart();    // one-time solder map over Serial (115200 baud) — see BEDRADING.md
+  Serial.print(F("Vrij SRAM na init (byte): ")); Serial.println(freeRam());   // Mega heeft 8192; houd ruime marge
   renderStatic(); FastLED.show(); drawHUD();
 }
 
@@ -377,22 +438,25 @@ void loop() {
   }
 
   bool dirty = false;
-  // 2) navigation — joystick A (horizontal), joystick B (vertical)
-  int ax = axisDir(axAx), ay = axisDir(axAy);
-  if (ax) { moveSel(ax > 0 ? 1 : -1, 0, 0); dirty = true; }       // east / west
-  else if (ay) { moveSel(0, ay > 0 ? 1 : -1, 0); dirty = true; }  // north / south
-  int bz = axisDir(axBy);
-  if (bz) { moveSel(0, 0, bz > 0 ? 1 : -1); dirty = true; }       // up / down
-  // 3) joystick C tilt scrolls the rotation menu
-  int cz = axisDir(axCy);
-  if (cz) { scrollMenu(cz > 0 ? -1 : 1); dirty = true; }
+  // 2) navigation — D-pad (ground plane x/z) + R-stick vertical (y)
+  if (pressed(bN)) { moveSel( 0, 0, -1); dirty = true; }   // N (achter)
+  if (pressed(bS)) { moveSel( 0, 0,  1); dirty = true; }   // S (voor)
+  if (pressed(bW)) { moveSel(-1, 0,  0); dirty = true; }   // W (links)
+  if (pressed(bE)) { moveSel( 1, 0,  0); dirty = true; }   // E (rechts)
+  if (readVerticalStick()) dirty = true;                    // U / D (boven / onder)
 
-  // 4) buttons
-  if (pressed(bA)) { press4D(); dirty = true; }                  // 4D rotation
-  if (pressed(bC)) { execMenu(); }                               // execute the highlighted turn
-  if (pressed(bB)) { if (puzzle.undo()) { solved = puzzle.isSolved(); renderStatic(); FastLED.show(); } }
-  if (pressed(bScr)) doScramble();
-  if (pressed(bRst)) doReset();
+  // 3) rotation — L-stick direction (held) + face buttons (planes / grip)
+  readDirectionStick();
+  if (pressed(bSquare))   { pressPlane(0); dirty = true; }  // vlak XY
+  if (pressed(bCross))    { pressPlane(1); dirty = true; }  // vlak YZ
+  if (pressed(bCircle))   { pressPlane(2); dirty = true; }  // vlak XZ
+  if (pressed(bTriangle)) { pressPlane(3); dirty = true; }  // grip (ribbe 180° / hoek ±120°)
+
+  // 4) actions
+  if (pressed(bL3))     { press4D();    dirty = true; }     // 4D rotation
+  if (pressed(bR3))     { doUndo();     dirty = true; }     // undo
+  if (pressed(bSelect)) { doScramble(); dirty = true; }     // husselen
+  if (pressed(bStart))  { doReset();    dirty = true; }     // reset
 
   if (dirty && !animating) { renderStatic(); }
   FastLED.show();

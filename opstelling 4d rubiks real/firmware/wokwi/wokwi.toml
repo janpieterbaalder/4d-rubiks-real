@@ -1,7 +1,9 @@
 # Alleen nodig voor de Wokwi VS Code-extensie / wokwi-cli (lokaal simuleren).
 # Voor de web-versie (wokwi.com) heb je dit bestand NIET nodig — zie README-wokwi.md.
 # Laat `firmware`/`elf` wijzen naar je gecompileerde build (Arduino CLI of PlatformIO).
+# LET OP: Wokwi draait de joystick/knoppen-testbank `sketch.ino` — NIET `tesseract_rig.ino`
+# (die heeft een USB Host Shield / PS3-controller nodig, wat Wokwi niet kan simuleren).
 [wokwi]
 version = 1
-firmware = "build/tesseract_rig.ino.hex"
-elf      = "build/tesseract_rig.ino.elf"
+firmware = "build/sketch.ino.hex"
+elf      = "build/sketch.ino.elf"
