@@ -459,17 +459,17 @@ let chainGroup = null, chainPulse = null;
   //      and the bottom (D) arm continuing down a pole into a round foot the whole rig rests on.
   const FRAME = 0x8893a8;                                   // brushed-metal grey
   const frameMat = () => mat(FRAME, { m: 0.55, r: 0.45 });
-  const UPv = new THREE.Vector3(0, 1, 0);
+  const UPaxis = new THREE.Vector3(0, 1, 0);
   const rod = (from, to, r, seg = 16) => {
     const a = new THREE.Vector3(...from), b = new THREE.Vector3(...to);
     const dir = new THREE.Vector3().subVectors(b, a);
     const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, dir.length(), seg), frameMat());
     m.position.copy(a).lerp(b, 0.5);
-    m.quaternion.setFromUnitVectors(UPv, dir.clone().normalize());
+    m.quaternion.setFromUnitVectors(UPaxis, dir.clone().normalize());
     m.userData.shell = true; m.raycast = () => {}; g.add(m); return m;
   };
   // 6 connecting rods: centre cube -> each arm cube (centre to centre, like the Blender connectors)
-  for (const slot of ['R', 'L', 'U', 'D', 'F', 'B']) rod([0, 0, 0], SLOTS[slot].pos, 0.09);
+  for (const slot of ['R', 'L', 'U', 'D', 'F', 'B']) rod([0, 0, 0], SLOTS[slot].pos, 0.045);
   // the stand: a round foot (flared disc + a domed "log" top) the rig rests on, fed by a pole
   // continuing down from the bottom (D) cube — mirrors the Blender Pedestal.
   const FOOT_BOTTOM = -RIG.D - 3.05;                        // local y; ≈ the workbench top in world space
