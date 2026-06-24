@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "author": "4D Rubiks rig",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-esp32-devkit-v1", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+
+    { "type": "wokwi-led-strip", "id": "strip", "top": -340, "left": -360,
+      "attrs": { "pixels": "189", "pixelShape": "square", "pixelSize": "2020" } },
+    { "type": "wokwi-resistor", "id": "r1", "top": -60, "left": 140,
+      "attrs": { "value": "330" } },
+
+    { "type": "board-ssd1306", "id": "oled", "top": -200, "left": 360, "attrs": { "i2cAddress": "0x3c" } },
+
+    { "type": "wokwi-analog-joystick", "id": "lstick", "top": 290, "left": -370, "attrs": {} },
+    { "type": "wokwi-analog-joystick", "id": "rstick", "top": 290, "left": -150, "attrs": {} },
+
+    { "type": "wokwi-pushbutton", "id": "bN", "top": 250, "left": 60,  "attrs": { "color": "blue",  "label": "N achter" } },
+    { "type": "wokwi-pushbutton", "id": "bW", "top": 320, "left": -10, "attrs": { "color": "blue",  "label": "W links" } },
+    { "type": "wokwi-pushbutton", "id": "bE", "top": 320, "left": 140, "attrs": { "color": "blue",  "label": "E rechts" } },
+    { "type": "wokwi-pushbutton", "id": "bS", "top": 390, "left": 60,  "attrs": { "color": "blue",  "label": "S voor" } },
+
+    { "type": "wokwi-pushbutton", "id": "bTriangle", "top": 250, "left": 360, "attrs": { "color": "yellow", "label": "tri grip" } },
+    { "type": "wokwi-pushbutton", "id": "bSquare",   "top": 320, "left": 290, "attrs": { "color": "green",  "label": "sq XY" } },
+    { "type": "wokwi-pushbutton", "id": "bCircle",   "top": 320, "left": 440, "attrs": { "color": "orange", "label": "circ XZ" } },
+    { "type": "wokwi-pushbutton", "id": "bCross",    "top": 390, "left": 360, "attrs": { "color": "purple", "label": "x YZ" } },
+
+    { "type": "wokwi-pushbutton", "id": "bSelect", "top": 470, "left": 140, "attrs": { "color": "green", "label": "SELECT husselen" } },
+    { "type": "wokwi-pushbutton", "id": "bStart",  "top": 470, "left": 290, "attrs": { "color": "red",   "label": "START reset" } }
+  ],
+  "connections": [
+    [ "esp:D23", "r1:1",      "gold",  [] ],
+    [ "r1:2",    "strip:DIN", "gold",  [] ],
+    [ "esp:3V3", "strip:VDD", "red",   [] ],
+    [ "esp:GND.1", "strip:VSS", "black", [] ],
+
+    [ "esp:3V3",   "oled:VCC", "red",   [] ],
+    [ "esp:GND.2", "oled:GND", "black", [] ],
+    [ "esp:D21",   "oled:SDA", "green", [] ],
+    [ "esp:D22",   "oled:SCL", "green", [] ],
+
+    [ "esp:3V3",   "lstick:VCC",  "red",   [] ],
+    [ "esp:GND.1", "lstick:GND",  "black", [] ],
+    [ "esp:D34",   "lstick:HORZ", "#36c7ff", [] ],
+    [ "esp:VP",    "lstick:VERT", "#36c7ff", [] ],
+    [ "esp:D25",   "lstick:SEL",  "#c77bff", [] ],
+
+    [ "esp:3V3",   "rstick:VCC",  "red",   [] ],
+    [ "esp:GND.2", "rstick:GND",  "black", [] ],
+    [ "esp:VN",    "rstick:HORZ", "#36c7ff", [] ],
+    [ "esp:D35",   "rstick:VERT", "#36c7ff", [] ],
+    [ "esp:D26",   "rstick:SEL",  "#c77bff", [] ],
+
+    [ "esp:D13", "bN:1.l", "#57e08a", [] ],
+    [ "esp:GND.1", "bN:2.r", "black", [] ],
+    [ "esp:D14", "bS:1.l", "#57e08a", [] ],
+    [ "esp:GND.1", "bS:2.r", "black", [] ],
+    [ "esp:D27", "bW:1.l", "#57e08a", [] ],
+    [ "esp:GND.1", "bW:2.r", "black", [] ],
+    [ "esp:D32", "bE:1.l", "#57e08a", [] ],
+    [ "esp:GND.1", "bE:2.r", "black", [] ],
+
+    [ "esp:D33", "bSquare:1.l",   "#ffd23d", [] ],
+    [ "esp:GND.2", "bSquare:2.r",   "black", [] ],
+    [ "esp:D19", "bCross:1.l",    "#ffd23d", [] ],
+    [ "esp:GND.2", "bCross:2.r",    "black", [] ],
+    [ "esp:D4",  "bCircle:1.l",   "#ffd23d", [] ],
+    [ "esp:GND.2", "bCircle:2.r",   "black", [] ],
+    [ "esp:RX2", "bTriangle:1.l", "#ffd23d", [] ],
+    [ "esp:GND.2", "bTriangle:2.r", "black", [] ],
+
+    [ "esp:TX2", "bSelect:1.l", "#57e08a", [] ],
+    [ "esp:GND.1", "bSelect:2.r", "black", [] ],
+    [ "esp:D18", "bStart:1.l",  "#57e08a", [] ],
+    [ "esp:GND.1", "bStart:2.r",  "black", [] ]
+  ],
+  "dependencies": {}
+}
