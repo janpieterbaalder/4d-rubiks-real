@@ -24,9 +24,11 @@ als de échte draadloze firmware ([`../esp32_bluepad32/`](../esp32_bluepad32/)),
    naam exact `tesseract_engine.h` → plak de inhoud). Plak de engine **nooit ín** `sketch.ino`
    (dan zet Arduino's auto-prototype-generator de prototypes bóven de typedefs en faalt de build).
 4. Open het `diagram.json`-tabblad en plak **[`diagram.json`](diagram.json)**.
-5. `libraries.txt` → plak **[`libraries.txt`](libraries.txt)**. **FastLED is op `@3.6.0` gepind**:
-   FastLED 3.9 sleept de zware `fl/ui`-headers mee (botst met onze `Button`-naam én laat cc1plus
-   op Wokwi's gratis buildserver out-of-memory gaan). 3.6.0 is licht en stabiel op de ESP32.
+5. `libraries.txt` → plak **[`libraries.txt`](libraries.txt)**. **FastLED is op `@3.7.8` gepind** —
+   dat is het "sweet spot": **3.6.0** is té oud voor Wokwi's nieuwe ESP32-core (IDF 5 / arduino-esp32
+   3.x → compile-fout `'RMTMEM' was not declared`), terwijl **3.9.x** de zware `fl/ui`-headers
+   meesleept die cc1plus op Wokwi's gratis **2 GB**-buildserver out-of-memory laten gaan (én met onze
+   `Button`-naam botsten). **3.7.8** heeft de nieuwe RMT5-driver én is licht genoeg om te compileren.
 6. Klik **▶ Start**. Open de **Serial Monitor** (115200) → de `printWiringChart()` soldeerkaart
    rolt eruit (`0 : C(midden) : -1,-1,-1` … `188 : B(achter) : 1,1,-1`), gevolgd door
    `Vrij heap na init (byte): …` (ruim, ~520 KB op ESP32).
