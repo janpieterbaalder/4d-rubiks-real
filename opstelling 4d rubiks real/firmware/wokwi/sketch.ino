@@ -81,6 +81,11 @@ CRGB leds[NLED];
 Adafruit_SSD1306 oled(128, 64, &Wire, -1);
 Tesseract puzzle;
 
+// Named PadButton (not Button) to dodge FastLED 3.9's global fl::Button, and forward-declared here —
+// before the first function — so Arduino's auto-prototype generator emits a valid prototype for
+// pressed(PadButton&). The full struct + the pressed() helper live in the INPUT section below.
+struct PadButton;
+
 // ----------------------------------------------------------------- per-slot tables (as-native, identical to ../tesseract_rig.ino)
 // view axis/sign used by viewToLogical, and the cube's global-coordinate centre. The centre uses the
 // as-native scheme: engine X→x, Y→y, Z→z (so U is +y, F is +z, etc.) — exactly like the rig + bench.
@@ -333,16 +338,16 @@ void doReset()    { puzzle.reset(); puzzle.resetView(); scrambledOnce = false; s
 // ============================================================================
 //  INPUT — two analog sticks (latched) + debounced buttons
 // ============================================================================
-struct Button { uint8_t pin; bool prev; uint32_t tEdge; };
-bool pressed(Button &b) {               // true once on a clean press (active-low)
+struct PadButton { uint8_t pin; bool prev; uint32_t tEdge; };
+bool pressed(PadButton &b) {               // true once on a clean press (active-low)
   bool down = digitalRead(b.pin) == LOW;
   bool fire = false;
   if (down != b.prev && millis() - b.tEdge > 25) { b.tEdge = millis(); if (down) fire = true; b.prev = down; }
   return fire;
 }
-Button bN = { BTN_N }, bS = { BTN_S }, bW = { BTN_W }, bE = { BTN_E };
-Button bSquare = { BTN_SQUARE }, bCross = { BTN_CROSS }, bCircle = { BTN_CIRCLE }, bTriangle = { BTN_TRIANGLE };
-Button bL3 = { LSTICK_SW }, bR3 = { RSTICK_SW }, bSelect = { BTN_SELECT }, bStart = { BTN_START };
+PadButton bN = { BTN_N }, bS = { BTN_S }, bW = { BTN_W }, bE = { BTN_E };
+PadButton bSquare = { BTN_SQUARE }, bCross = { BTN_CROSS }, bCircle = { BTN_CIRCLE }, bTriangle = { BTN_TRIANGLE };
+PadButton bL3 = { LSTICK_SW }, bR3 = { RSTICK_SW }, bSelect = { BTN_SELECT }, bStart = { BTN_START };
 
 // L-stick X = held rotation direction (−/+). It is a LEVEL (held), so we act on each change of
 // the dead-zoned state: enter ±X arms a direction (and fires an armed plane), return to centre clears it.
