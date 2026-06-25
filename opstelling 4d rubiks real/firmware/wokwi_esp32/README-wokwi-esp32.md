@@ -38,12 +38,12 @@ als de échte draadloze firmware ([`../esp32_bluepad32/`](../esp32_bluepad32/)),
 
 | Functie | GPIO | Opmerking |
 | --- | --- | --- |
-| LED-data (WS2812 → 330 Ω → DIN) | **23** | FastLED RMT |
+| LED-data (WS2812 → 330 Ω → DIN) | **13** | FastLED RMT — **gelijk aan de bouw-firmware** (`esp32_bluepad32` + `hardware.html`), zodat deze testbank ook als bedradingsreferentie dient |
 | L-stick X (draairichting −/+) | **34** | ADC1 (input-only) |
 | L-stick druk (L3 = 4D-rotatie) | **25** | pull-up |
 | R-stick Y (boven/onder U/D) | **35** | ADC1 (input-only) |
 | R-stick druk (R3 = undo) | **26** | pull-up |
-| D-pad N / S / W / E | **13 / 14 / 27 / 32** | grondvlak x,z |
+| D-pad N / S / W / E | **23 / 14 / 27 / 32** | grondvlak x,z (N van 13 → 23 verhuisd, want 13 = LED-data) |
 | □ / ✕ / ○ / △ (XY / YZ / XZ / grip) | **33 / 19 / 4 / 16** | 16 = RX2 |
 | SELECT / START (husselen / reset) | **17 / 18** | 17 = TX2 |
 | OLED I²C (SDA / SCL, 0x3C) | **21 / 22** | — |

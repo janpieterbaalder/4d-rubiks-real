@@ -29,7 +29,7 @@
     { "type": "wokwi-pushbutton", "id": "bStart",  "top": 470, "left": 290, "attrs": { "color": "red",   "label": "START reset" } }
   ],
   "connections": [
-    [ "esp:D23", "r1:1",      "gold",  [] ],
+    [ "esp:D13", "r1:1",      "gold",  [] ],
     [ "r1:2",    "strip:DIN", "gold",  [] ],
     [ "esp:3V3", "strip:VDD", "red",   [] ],
     [ "esp:GND.1", "strip:VSS", "black", [] ],
@@ -51,7 +51,7 @@
     [ "esp:D35",   "rstick:VERT", "#36c7ff", [] ],
     [ "esp:D26",   "rstick:SEL",  "#c77bff", [] ],
 
-    [ "esp:D13", "bN:1.l", "#57e08a", [] ],
+    [ "esp:D23", "bN:1.l", "#57e08a", [] ],
     [ "esp:GND.1", "bN:2.r", "black", [] ],
     [ "esp:D14", "bS:1.l", "#57e08a", [] ],
     [ "esp:GND.1", "bS:2.r", "black", [] ],

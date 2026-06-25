@@ -26,10 +26,12 @@
    Wire.h and the engine header come with the sketch.
 
    ---- WIRING (see diagram.json) — ESP32 DevKit v1 GPIOs ---------------------
-     LED data    : GPIO23 -> 330 ohm -> DIN of LED #0   (3.3V data; add a level shifter on real hw)
+     LED data    : GPIO13 -> 330 ohm -> DIN of LED #0   (3.3V data; add a level shifter on real hw)
+                   ^ SAME pin as the real build (../esp32_bluepad32/ + hardware.html), so this
+                     testbench doubles as a wiring reference. On real hw: GPIO13 -> 74AHCT125 -> 330Ω -> DIN.
      L-stick     : VRx GPIO34 (ADC1), SW GPIO25   (X = rotation direction ; press L3 = 4D rotation)
      R-stick     : VRy GPIO35 (ADC1), SW GPIO26   (Y = up/down cube U/D    ; press R3 = undo)
-     D-pad       : N 13, S 14, W 27, E 32          (ground plane: x and z)
+     D-pad       : N 23, S 14, W 27, E 32          (ground plane: x and z)
      Face buttons: [] 33, X 19, O 4, /\ 16         (vlak XY / YZ / XZ / grip)
      SELECT/START: 17 (husselen) / 18 (reset)
      OLED        : SDA 21, SCL 22 (I2C, addr 0x3C)
@@ -54,12 +56,12 @@
 // ----------------------------------------------------------------- pins (ESP32 DevKit v1 GPIOs)
 // Analoge sticks op ADC1 (34/35, input-only, geen pull-up nodig); knoppen/SW op pull-up-
 // capabele GPIO's. Strapping/flash-pinnen (0,2,5,6-11,12,15) vermeden.
-#define LED_PIN        23       // WS2812 data (FastLED RMT) -> 330 ohm -> DIN
+#define LED_PIN        13       // WS2812 data (FastLED RMT) -> 330 ohm -> DIN  (= real build pin, see esp32_bluepad32)
 #define LSTICK_X       34       // ADC1: rotation direction (-/+)
 #define LSTICK_SW      25       // L3 = 4D rotation
 #define RSTICK_Y       35       // ADC1: up/down cube (U/D)
 #define RSTICK_SW      26       // R3 = undo
-#define BTN_N          13       // D-pad up    (achter, z-)
+#define BTN_N          23       // D-pad up    (achter, z-)   (was 13; freed up for LED_PIN to match the build)
 #define BTN_S          14       // D-pad down  (voor,   z+)
 #define BTN_W          27       // D-pad left  (links,  x-)
 #define BTN_E          32       // D-pad right (rechts, x+)
