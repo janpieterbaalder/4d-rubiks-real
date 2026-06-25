@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bedrading &amp; hardware — Opstelling 4D Rubiks</title>
+<style>
+  :root {
+    --bg: #0e1320; --panel: #161d2e; --panel2: #1f2940;
+    --ink: #e7ecf6; --dim: #8a96ad; --line: #2a3550;
+    --accent: #ffd23d; --ok: #00c596;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.6 system-ui, "Segoe UI", sans-serif; }
+
+  /* ---- sticky top bar (mirrors the workbench look) ---- */
+  #top { position: sticky; top: 0; z-index: 10; display: flex; gap: 10px; align-items: center;
+    flex-wrap: wrap; padding: 10px 16px; background: rgba(14,19,32,.92);
+    border-bottom: 1px solid var(--line); backdrop-filter: blur(6px); }
+  #top a.tab, #top .pill { background: rgba(22,29,46,.82); border: 1px solid var(--line);
+    border-radius: 999px; padding: 6px 14px; color: var(--ink); text-decoration: none; }
+  #top a.tab:hover { border-color: var(--accent); }
+  #top .pill { font-weight: 700; letter-spacing: .3px; }
+  #top .pill small { color: var(--dim); font-weight: 400; }
+  #top .spacer { flex: 1; }
+
+  /* ---- readable markdown column ---- */
+  main { max-width: 920px; margin: 0 auto; padding: 26px 20px 80px; }
+  #md h1 { font-size: 26px; margin: 0 0 6px; }
+  #md h2 { font-size: 20px; margin: 34px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  #md h3 { font-size: 15px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin: 22px 0 6px; }
+  #md a { color: var(--accent); }
+  #md code { background: var(--panel2); border: 1px solid var(--line); border-radius: 5px;
+    padding: 1px 5px; font-size: .9em; }
+  #md pre { background: #0a0f1a; border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px; overflow-x: auto; line-height: 1.35; }
+  #md pre code { background: none; border: 0; padding: 0; font-size: 12.5px; white-space: pre; }
+  #md blockquote { margin: 12px 0; padding: 8px 14px; border-left: 3px solid var(--accent);
+    background: var(--panel); border-radius: 0 8px 8px 0; color: #d7deec; }
+  #md table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13.5px; }
+  #md th, #md td { border: 1px solid var(--line); padding: 6px 9px; text-align: left; vertical-align: top; }
+  #md th { background: var(--panel2); }
+  #md tr:nth-child(even) td { background: rgba(31,41,64,.35); }
+  #md hr { border: 0; border-top: 1px solid var(--line); margin: 26px 0; }
+  #md ul, #md ol { padding-left: 22px; }
+  #md li { margin: 3px 0; }
+  #status { color: var(--dim); padding: 30px 0; }
+  #status a { color: var(--accent); }
+</style>
+</head>
+<body>
+  <div id="top">
+    <a class="tab" href="hardware.html">← Werkbank</a>
+    <span class="pill">📋 Bedrading <small>· bouwhandleiding (ESP32)</small></span>
+    <span class="spacer"></span>
+    <a class="tab" href="https://wokwi.com/projects/467721462500426753" target="_blank" rel="noopener">Wokwi-testbank ↗</a>
+    <a class="tab" href="https://github.com/janpieterbaalder/4d-rubiks-real/blob/main/opstelling%204d%20rubiks%20real/BEDRADING.md" target="_blank" rel="noopener">Op GitHub ↗</a>
+  </div>
+
+  <main>
+    <article id="md"></article>
+    <p id="status">Bedrading wordt geladen…</p>
+  </main>
+
+  <!-- Single source of truth: deze pagina rendert BEDRADING.md live, zodat een wijziging
+       aan dat bestand meteen ook hier zichtbaar is. -->
+  <script src="https://unpkg.com/marked@12.0.2/marked.min.js"></script>
+  <script>
+    const SRC = 'BEDRADING.md';
+    const GH  = 'https://github.com/janpieterbaalder/4d-rubiks-real/blob/main/opstelling%204d%20rubiks%20real/BEDRADING.md';
+    const mdEl = document.getElementById('md');
+    const statusEl = document.getElementById('status');
+
+    function fail(msg) {
+      mdEl.innerHTML = '';
+      statusEl.innerHTML = msg + ' Bekijk de bouwhandleiding op <a href="' + GH +
+        '" target="_blank" rel="noopener">GitHub</a> of open <a href="' + SRC + '">het ruwe bestand</a>.';
+    }
+
+    fetch(SRC, { cache: 'no-cache' })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+      .then(function (text) {
+        if (typeof marked === 'undefined') {
+          // CDN niet beschikbaar → toon de ruwe markdown leesbaar
+          const pre = document.createElement('pre');
+          pre.textContent = text;
+          mdEl.appendChild(pre);
+          statusEl.remove();
+          return;
+        }
+        marked.setOptions({ gfm: true, breaks: false });
+        mdEl.innerHTML = marked.parse(text);
+        // externe links in een nieuw tabblad
+        mdEl.querySelectorAll('a[href^="http"]').forEach(function (a) {
+          a.target = '_blank'; a.rel = 'noopener';
+        });
+        document.title = 'Bedrading & hardware — Opstelling 4D Rubiks';
+        statusEl.remove();
+      })
+      .catch(function (e) { fail('Kon BEDRADING.md niet laden (' + e.message + ').'); });
+  </script>
+</body>
+</html>

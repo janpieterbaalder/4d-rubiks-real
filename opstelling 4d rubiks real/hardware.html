@@ -209,6 +209,7 @@
   <div id="top">
     <span class="pill" id="title">4D&nbsp;Rubiks <small>· hardware &amp; bedrading + speelbare game</small></span>
     <a class="tab" id="about-tab" style="cursor:pointer">ℹ️ Over</a>
+    <a class="tab" href="bedrading.html">📋 Bedrading</a>
     <a class="tab" href="game/index.html">🎮 Game</a>
     <span class="pill" id="power-state">Status: <b>AAN</b></span>
     <span class="pill" id="sel-pill">Cel: <b id="sel-label">midden</b></span>
@@ -259,20 +260,23 @@
       DS3) via de <b>ingebouwde Bluetooth van de ESP32</b> (bibliotheek <code>Bluepad32</code>) — geen shield
       of dongle. De <b>189 leds</b> hangen aan één datadraad (GPIO13, via een levelshifter + 330Ω) uit een
       aparte 5V-voeding met power-injectie. De volledige bouwhandleiding — onderdelenlijst, pin-voor-pin
-      bedrading, stroombudget en led-volgorde — staat in <code>BEDRADING.md</code>.</p>
+      bedrading, stroombudget en led-volgorde — staat in de <a href="bedrading.html">📋 Bedrading</a>-pagina
+      (gerenderd uit <code>BEDRADING.md</code>).</p>
 
     <h3>Firmware &amp; testen zonder hardware</h3>
     <p>De geverifieerde 4D-engine draait <b>1-op-1</b> op de microcontroller (<code>firmware/</code>;
       aanbevolen: <code>esp32_bluepad32/</code>). Geen hardware bij de hand? In <b>Wokwi</b> draai je de échte
-      Arduino-code tegen gesimuleerde WS2812-leds in de browser — de logica-testbank
-      <code>firmware/wokwi/sketch.ino</code> (PS3-layout met sticks + knoppen, want Wokwi kan geen draadloze
-      controller simuleren) test de engine én de 189-led-adressering.</p>
+      ESP32-code tegen gesimuleerde WS2812-leds in de browser — de logica-testbank
+      <code>firmware/wokwi_esp32/sketch.ino</code> (controller nagebootst met sticks + knoppen, want Wokwi kan
+      geen draadloze controller simuleren) test de engine én de 189-led-adressering.
+      <a href="https://wokwi.com/projects/467721462500426753" target="_blank" rel="noopener">Open de Wokwi-testbank ↗</a></p>
 
     <h3>Links</h3>
     <ul>
+      <li>Bouwhandleiding &amp; bedrading: <a href="bedrading.html">📋 Bedrading-pagina openen</a> (gerenderd uit <code>BEDRADING.md</code>)</li>
       <li>Broncode: <a href="https://github.com/janpieterbaalder/4d-rubiks-real" target="_blank" rel="noopener">github.com/janpieterbaalder/4d-rubiks-real</a></li>
       <li>De originele 4D-game (meegeleverd in deze omgeving): <a href="game/index.html">spelen</a> — via de tab <b>🎮 Game</b> bovenin</li>
-      <li>Wokwi-firmwaresimulatie: <a href="https://wokwi.com/projects/467182062676747265" target="_blank" rel="noopener">de testbank draaien ↗</a></li>
+      <li>Wokwi-firmwaresimulatie (ESP32-testbank): <a href="https://wokwi.com/projects/467721462500426753" target="_blank" rel="noopener">de testbank draaien ↗</a></li>
     </ul>
   </aside>
 
