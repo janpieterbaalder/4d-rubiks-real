@@ -155,5 +155,12 @@ C voor look & fabricage. Begin met A.
       → 330Ω → DIN). `CONNECTIONS`, de info-kaartjes, de dradenlegenda en de "Over"-teksten lopen nu
       gelijk met de aanbevolen ESP32-firmware. De draadloze controller praat rechtstreeks met de ESP32
       (geen dongle). De speelbare rig + engine zijn ongemoeid.
+- [x] **Zekering in de 3D-werkbank** (`hardware.html` + `hardware.js`, cache v=10): de inline
+      10A-zekering uit `BEDRADING.md` §3/§4 is nu een klikbaar onderdeel, bedraad ná de schakelaar
+      (schakelaar → zekering → ESP32/levelshifter/leds/power-injectie) in `CONNECTIONS` én in de
+      §2-pintabel (die miste de zekering die het §3-schema al toonde). Info-kaartjes gelijkgetrokken
+      met `BEDRADING.md`: condensator 10–16V (was "≥6,3V"), voeding = capped build 5V/10A
+      (full-white ≥15A, alles samen verhogen), schakelaar 10A/15A + Mega-restteksten in de
+      voeding/schakelaar-kaartjes vervangen door de ESP32-bedrading (5V/VIN).
 - [ ] Wokwi logica-testbank (`firmware/wokwi/sketch.ino`) draaien + bedrading op breadboard verifiëren
 - [ ] Fysieke bouw (aanbevolen: ESP32 + Bluepad32)
