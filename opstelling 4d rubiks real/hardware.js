@@ -5,8 +5,8 @@
    the installation:
      1. HARDWARE — the real electronics: an ESP32 (built-in Bluetooth), a 5V supply, a
         3.3V->5V level shifter on the data line, a wireless game controller (PS4/PS5/Xbox/
-        8BitDo/Switch Pro, or a DS3), resistor + capacitor, on/off switch and the
-        189-WS2812B led rig.
+        8BitDo/Switch Pro, or a DS3), resistor + capacitor, on/off switch + inline fuse
+        and the 189-WS2812B led rig.
         Click any part for an info panel + exact wiring (one CONNECTIONS table is
         the single source of truth and matches BEDRADING.md).
      2. SOFTWARE — the actual 4D-Rubiks game runs on those same led meshes. Drive
@@ -35,10 +35,11 @@ const WIRE = {
    Each row: [ fromPart, fromTerminal, toPart, toTerminal, category, note ]
    ========================================================================== */
 const CONNECTIONS = [
-  // --- power backbone: PSU -> switch -> (ESP32 + led rig) ---
+  // --- power backbone: PSU -> switch -> fuse -> (ESP32 + led rig) ---
   ['psu','+5V', 'sw','in',     'pwr', 'voeding naar aan/uit-schakelaar'],
-  ['sw','out',  'esp','5Vin',  'pwr', '5V naar de ESP32 (via de 5V/VIN-pin)'],
-  ['sw','out',  'rig','5V',    'pwr', '5V naar de leds — dikke draad!'],
+  ['sw','out',  'fuse','in',   'pwr', 'schakelaar naar de inline zekering'],
+  ['fuse','out','esp','5Vin',  'pwr', '5V naar de ESP32 (via de 5V/VIN-pin)'],
+  ['fuse','out','rig','5V',    'pwr', '5V naar de leds — dikke draad!'],
   ['psu','GND', 'esp','GNDin', 'gnd', 'gemeenschappelijke massa'],
   ['psu','GND', 'rig','GND',   'gnd', 'massa naar de leds — dikke draad!'],
 
@@ -48,7 +49,7 @@ const CONNECTIONS = [
   ['res','out', 'rig','DIN', 'data', '330Ω vlak vóór de eerste led'],
 
   // --- level shifter power (shared GND is essential) ---
-  ['sw','out',  'lvl','VCC', 'pwr', 'levelshifter op 5V (zet OE van het kanaal aan GND — zie info)'],
+  ['fuse','out','lvl','VCC', 'pwr', 'levelshifter op 5V (zet OE van het kanaal aan GND — zie info)'],
   ['psu','GND', 'lvl','GND', 'gnd', 'gedeelde massa — anders is de 5V-uitgang ongeldig'],
 
   // --- decoupling capacitor across the led rail near DIN ---
@@ -58,12 +59,12 @@ const CONNECTIONS = [
   // --- Bluetooth: the controller talks straight to the ESP32's built-in radio ---
   ['esp','BT',  'ps3','BT',  'bt', 'Bluetooth (HID) — ingebouwd in de ESP32 (Bluepad32), geen dongle'],
 
-  // --- power injection: feed 5V/GND straight from the PSU into far cubes ---
-  ['sw','out',  'rig','INJ_R','pwr','power-injectie rechter arm'],
+  // --- power injection: feed 5V/GND straight from the fused rail into far cubes ---
+  ['fuse','out','rig','INJ_R','pwr','power-injectie rechter arm'],
   ['psu','GND', 'rig','INJ_R','gnd',''],
-  ['sw','out',  'rig','INJ_U','pwr','power-injectie bovenste arm'],
+  ['fuse','out','rig','INJ_U','pwr','power-injectie bovenste arm'],
   ['psu','GND', 'rig','INJ_U','gnd',''],
-  ['sw','out',  'rig','INJ_B','pwr','power-injectie achterste arm'],
+  ['fuse','out','rig','INJ_B','pwr','power-injectie achterste arm'],
   ['psu','GND', 'rig','INJ_B','gnd',''],
 ];
 
@@ -84,29 +85,43 @@ const INFO = {
       <p><b>Let op:</b> de ESP32 werkt op <b>3,3V-logica</b>. De WS2812 willen een 5V-datasignaal, dus
       zit er een <b>levelshifter</b> tussen de datapin (<b>GPIO13</b>) en de eerste led.</p>`,
     notes: [['','Voed de ESP32 via zijn 5V/VIN-pin (de onboard-regelaar maakt er 3,3V van) — nooit 5V rechtstreeks op de 3V3-pin.'],
-      ['','Alternatief (5V-only): een Arduino Mega + USB Host Shield + PS3BT. Dan geen levelshifter nodig, maar wél krap geheugen — zie BEDRADING.md.']],
+      ['','De oudere Mega + USB-Host-Shield + PS3BT-variant is vervallen — bouw met de ESP32 (zie BEDRADING.md).']],
   },
   psu: {
-    name: '5V voeding (≈10A)', tag: 'Aparte stroombron voor de leds', color: '#ff5a4d',
+    name: '5V voeding (10A)', tag: 'Aparte stroombron voor de leds', color: '#ff5a4d',
     html: `<p><b>Wat:</b> een 5V-netvoeding (schakelende voeding / "brick"). Levert de stroom
-      voor de 189 leds <i>en</i> voor de Arduino.</p>
+      voor de 189 leds <i>en</i> voor de ESP32.</p>
       <p><b>Waarom apart, niet via USB?</b> 189 WS2812B op vol wit trekken theoretisch ~11A.
       In de praktijk (verzadigde kleuren, gedimd) eerder 3–6A, maar de USB-poort van je laptop
-      levert maar ~0,5A. Daarom een eigen 5V/10A-voeding. <b>Reken op minimaal 5V/6A</b>, met
-      marge 5V/10A.</p>
-      <p><b>Cruciaal:</b> de massa (GND) van de voeding, de Arduino én de leds moet je
+      levert maar ~0,5A. Kies de voeding daarom op de <b>capped build: 5V/10A</b>; wil je álle
+      leds op vol wit, dan <b>≥15A</b> — en verhoog dan óók zekering, schakelaar en draaddikte
+      (zie BEDRADING.md §4).</p>
+      <p><b>Cruciaal:</b> de massa (GND) van de voeding, de ESP32 én de leds moet je
       <b>aan elkaar knopen</b> (gemeenschappelijke GND). Zonder die gedeelde massa "zweeft" het
       datasignaal en gaan de leds willekeurig knipperen.</p>`,
-    notes: [['warn','Sluit nooit tegelijk USB én de 5V-pin van de Mega op deze voeding aan zonder na te denken — zie de uitleg bij de Aan/uit-schakelaar.']],
+    notes: [['warn','Niet USB én 5V/VIN tegelijk voeden zonder nadenken: tijdens het programmeren de ESP32 via USB en de 5V-draad naar het bord los (massa\'s wél verbonden); zelfstandig = 5V/VIN uit de voeding, USB eraf.']],
   },
   sw: {
     name: 'Aan/uit-schakelaar', tag: 'Onderbreekt de 5V-lijn', color: '#ffd23d',
     html: `<p><b>Wat:</b> een stevige schakelaar (of relais) in de <b>plus-draad (5V)</b>
       tussen de voeding en de rest. Hij moet de hele led-stroom kunnen dragen → kies er een
-      voor <b>minstens 10A</b> (een rocker-switch of een MOSFET-module).</p>
-      <p><b>Tip:</b> tijdens het ontwikkelen voed je de Mega via USB (programmeren) en laat je
-      de 5V-pin los; de leds krijgen hun stroom van de voeding. Voor een zelfstandige opstelling
-      voer je 5V naar de 5V-pin van de Mega — maar dan USB eraf.</p>`,
+      voor <b>minstens 10A</b> (15A bij full-white) — een flinke rocker-switch of een
+      MOSFET-module. Direct erna volgt de <b>inline zekering</b>.</p>
+      <p><b>Tip:</b> tijdens het ontwikkelen voed je de ESP32 via USB (programmeren) en laat je
+      de 5V/VIN-draad los; de leds krijgen hun stroom van de voeding (massa's wél verbonden).
+      Voor een zelfstandige opstelling voer je 5V naar de 5V/VIN-pin — maar dan USB eraf.</p>`,
+  },
+  fuse: {
+    name: 'Inline zekering (10A)', tag: 'Smeltzekering in de +5V-lijn, direct na de schakelaar', color: '#ff7a4d',
+    html: `<p><b>Wat:</b> een smeltzekering van <b>10A</b> (in een inline houder) in serie in de
+      <b>+5V-hoofdlijn</b>, direct na de aan/uit-schakelaar — vóór het punt waar de 5V zich
+      vertakt naar de ESP32, de levelshifter, de leds en de power-injectie.</p>
+      <p><b>Waarom:</b> bij kortsluiting kan de voeding véél stroom leveren en worden dunne
+      draadjes gloeiend heet. <b>Regel:</b> de zekering beschermt de <b>dunste draad</b>
+      eronder, niet de last — kies hem ≤ wat je dunste 5V-draad aankan (16 AWG bij 10A).</p>
+      <p><b>Full-white build?</b> Verhoog dan voeding (≥15A), zekering (15A traag), schakelaar
+      én draaddikte (14 AWG) altijd <b>samen</b> — zie BEDRADING.md §4.</p>`,
+    notes: [['warn','De stroomlimiet in de firmware (FastLED) is software, géén zekering — een herprogrammering of vastgelopen sketch heft hem op. Dimensioneer op wat de voeding fysiek kán leveren.']],
   },
   res: {
     name: '330Ω weerstand (data)', tag: 'Beschermt de eerste led', color: '#ffd23d',
@@ -117,12 +132,14 @@ const INFO = {
   },
   cap: {
     name: '1000µF condensator', tag: 'Stroombuffer bij de leds', color: '#ff5a4d',
-    html: `<p><b>Wat:</b> een grote elektrolytische condensator (≥1000µF, ≥6,3V) <b>parallel</b>
-      over 5V en GND, vlak bij waar de stroom de led-keten binnenkomt. Hij vangt de plotselinge
-      stroompieken op als veel leds tegelijk aanspringen, zodat de eerste leds niet "dippen".</p>
+    html: `<p><b>Wat:</b> een grote elektrolytische condensator (1000µF, <b>10–16V</b> — niet de
+      6,3V-ondergrens) <b>parallel</b> over 5V en GND, vlak bij waar de stroom de led-keten
+      binnenkomt. Hij vangt de plotselinge stroompieken op als veel leds tegelijk aanspringen,
+      zodat de eerste leds niet "dippen".</p>
       <p><b>Let op de polariteit:</b> de gemarkeerde poot (−, streep op de behuizing) gaat naar
       GND, de andere naar +5V. Verkeerd om kan hij klappen.</p>`,
-    notes: [['warn','Elco\'s zijn gepolariseerd: − (streep) naar massa, + naar 5V.']],
+    notes: [['warn','Elco\'s zijn gepolariseerd: − (streep) naar massa, + naar 5V.'],
+      ['','Tip: bij lange armen ook een kleinere elco (100–470µF) bij elk power-injectiepunt.']],
   },
   lvl: {
     name: 'Levelshifter (3,3V→5V)', tag: '74AHCT125 — tilt de datalijn naar 5V', color: '#36c7ff',
@@ -167,7 +184,7 @@ const INFO = {
 
 const MENU = [
   ['Besturing', ['esp','lvl']],
-  ['Voeding', ['psu','sw','cap','res']],
+  ['Voeding', ['psu','sw','fuse','cap','res']],
   ['Invoer', ['ps3']],
   ['Uitvoer', ['rig']],
 ];
@@ -290,6 +307,31 @@ function pinRow(n, spacing, color = 0x2b2b2b) {
   registerPart('sw', g, new THREE.Vector3(0, 1.0, 0));
   term('sw', 'in',  new THREE.Vector3(-0.6, 0.1, 0));
   term('sw', 'out', new THREE.Vector3( 0.6, 0.1, 0));
+})();
+
+// --- inline fuse (10A) — glass cartridge in a holder, in the +5V line right after the switch ---
+(function buildFuse() {
+  const g = new THREE.Group(); g.position.set(-4.9, 0.55, 3.5);
+  const base = box(1.7, 0.22, 0.8, 0x14181f, { r: 0.5 }); base.position.y = -0.14; g.add(base);
+  // two metal clips holding the cartridge
+  for (const s of [-1, 1]) {
+    const clip = box(0.16, 0.34, 0.5, 0xc6ccd6, { m: 0.8, r: 0.3 }); clip.position.set(s * 0.55, 0.05, 0); g.add(clip);
+  }
+  // glass tube with metal end caps + the thin fuse wire visible inside
+  const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.95, 16),
+    mat(0xdfe9f5, { t: true, o: 0.35, r: 0.15 }));
+  glass.rotation.z = Math.PI / 2; glass.position.y = 0.12;
+  glass.userData.shell = true;                       // keep its transparency out of the fade loops
+  g.add(glass);
+  for (const s of [-1, 1]) {
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.22, 16), mat(0xb7bcc6, { m: 0.85, r: 0.3 }));
+    cap.rotation.z = Math.PI / 2; cap.position.set(s * 0.47, 0.12, 0); g.add(cap);
+  }
+  const fwire = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.9, 8), mat(0xffd9a0, { e: 0xff9e2c, ei: 0.6 }));
+  fwire.rotation.z = Math.PI / 2; fwire.position.y = 0.12; g.add(fwire);
+  registerPart('fuse', g, new THREE.Vector3(0, 0.9, 0));
+  term('fuse', 'in',  new THREE.Vector3(-0.85, 0, 0));
+  term('fuse', 'out', new THREE.Vector3( 0.85, 0, 0));
 })();
 
 // --- 330Ω resistor ---

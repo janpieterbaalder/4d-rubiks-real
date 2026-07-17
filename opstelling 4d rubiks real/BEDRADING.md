@@ -32,7 +32,7 @@ Eén controller-pad: **ESP32 + Bluepad32**. De ESP32 koppelt de gamepad draadloo
 | 6 | Condensator | 1 | **1000µF / 10–16V** elektrolytisch | €0,50 | buffert stroompieken bij de leds |
 | 7 | Weerstand | 1 | **330Ω** (220–470Ω ok) | €0,10 | beschermt de data-ingang van led #1 |
 | 8 | Aan/uit-schakelaar | 1 | rocker/schakelaar **≥10A** (15A bij full-white; of MOSFET-module) | €2–5 | onderbreekt de 5V-lijn |
-| 9 | Zekering (aanbevolen) | 1 | inline **10A** (15A traag bij full-white) + houder | €2 | beschermt de **dunste draad**, niet de last |
+| 9 | Zekering | 1 | inline **10A** (15A traag bij full-white) + houder | €2 | beschermt de **dunste draad**, niet de last |
 | 10| Draad | — | **16–18 AWG** voor 5V/GND-hoofdlijnen, 22–24 AWG signaal | €5 | dikke draad voor de stroom, dun voor signalen |
 | 11| Diversen | — | breadboard/PCB, dupont-draadjes, JST-connectoren, krimpkous | €10 | montage |
 | 12| Behuizing | 7 kubussen | doorschijnend-wit PETG/acryl, 3D-print | zelf | je eigen 3D-model |
@@ -64,9 +64,10 @@ Kleurcodes komen overeen met de 3D-werkbank: 🔴 +5V · ⚫ GND · 🟡 Data 3,
 | Van | Naar | Kleur | Opmerking |
 |-----|------|-------|-----------|
 | Voeding **+5V** | Aan/uit-schakelaar `in` | 🔴 | dikke draad (16–18 AWG) |
-| Schakelaar `out` | ESP32 **5V/VIN**-pin | 🔴 | voedt de ESP32 (regelaar → 3,3V); **nooit** op de 3V3-pin |
-| Schakelaar `out` | Levelshifter **VCC** | 🔴 | de shifter draait op 5V |
-| Schakelaar `out` | Led-rig **+5V** (bij DIN) | 🔴 | dikke draad naar de leds |
+| Schakelaar `out` | Zekering `in` | 🔴 | inline **10A** (15A traag bij full-white) |
+| Zekering `out` | ESP32 **5V/VIN**-pin | 🔴 | voedt de ESP32 (regelaar → 3,3V); **nooit** op de 3V3-pin |
+| Zekering `out` | Levelshifter **VCC** | 🔴 | de shifter draait op 5V |
+| Zekering `out` | Led-rig **+5V** (bij DIN) | 🔴 | dikke draad naar de leds |
 | Voeding **GND** | ESP32 **GND** | ⚫ | **gemeenschappelijke massa!** |
 | Voeding **GND** | Levelshifter **GND** | ⚫ | gedeeld met de ESP32 (anders geen geldige 5V-high) |
 | Voeding **GND** | Led-rig **GND** (bij DIN) | ⚫ | dikke draad |
@@ -102,7 +103,7 @@ Kleurcodes komen overeen met de 3D-werkbank: 🔴 +5V · ⚫ GND · 🟡 Data 3,
 ### Power-injectie (zie §4)
 | Van | Naar | Kleur |
 |---|---|---|
-| Voeding **+5V** | Led-rig **+5V** bij rechter/boven/achter-arm | 🔴 |
+| Zekering `out` | Led-rig **+5V** bij rechter/boven/achter-arm | 🔴 |
 | Voeding **GND** | Led-rig **GND** bij dezelfde armen | ⚫ |
 
 ---
