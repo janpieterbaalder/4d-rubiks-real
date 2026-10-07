@@ -9,7 +9,11 @@
    Memory note (Arduino Mega has 8 KB SRAM): puzzle + undo-history ~2.8 KB, the 189-LED
    buffer ~0.6 KB, the OLED buffer ~1 KB and the (bit-packed) animation scratch ~0.8 KB —
    together ~5.5 KB. Verified to boot in Wokwi (an earlier, un-packed version overran the
-   8 KB and reset-looped). Still tight; on an ESP32 (520 KB) there is no concern at all.
+   8 KB and reset-looped). Still tight; on an ESP32 (520 KB) there is no concern at all, so
+   there the undo ring holds 128 moves instead of 16 (HIST_MAX).
+
+   Parity with engine.js is PROVEN, not assumed: firmware/test/parity.test.mjs compiles this
+   header natively and compares the full 189-led readout after thousands of random moves.
 
    Coordinate / cell conventions (same as engine.js):
      axes  X=0 Y=1 Z=2 W=3 ; W is the inner<->outer (4D) axis.
@@ -134,8 +138,17 @@ struct Piece {
   int8_t  stAxis[4];     // the axes that carry a sticker (solved[a] != 0)
 };
 
-// optional move history for undo (kept small to save SRAM)
+// move history for undo: a RING of the most recent HIST_MAX moves. When it is full the OLDEST
+// move is dropped, so undo always reverses the latest moves (an earlier version stopped
+// recording when full, after which "undo" reversed an old move instead of the last one).
+// Small on the Mega (8 KB SRAM); plenty on an ESP32. Override with -DHIST_MAX=n.
+#ifndef HIST_MAX
+#ifdef __AVR__
 #define HIST_MAX 16
+#else
+#define HIST_MAX 128
+#endif
+#endif
 struct Move {
   bool   grip;
   int8_t d, sd;
@@ -198,13 +211,19 @@ public:
     }
   }
 
+  // next free history slot; drops the oldest move when the ring is full
+  Move &histPush() {
+    if (histN == HIST_MAX) { memmove(hist, hist + 1, (HIST_MAX - 1) * sizeof(Move)); histN--; }
+    return hist[histN++];
+  }
+
   // 90° plane twist of cell (d,sd): planeIdx 0..2, dir ±1
   void twist(int d, int sd, int planeIdx, int dir, bool record = true) {
     int8_t planes[3][2]; planesFor(d, planes);
     Mat4 R; rotInt(R, planes[planeIdx][0], planes[planeIdx][1], dir);
     applyToSlab(d, sd, R);
-    if (record && histN < HIST_MAX) {
-      Move &m = hist[histN++]; m.grip = false; m.d = d; m.sd = sd; m.planeIdx = planeIdx; m.dir = dir;
+    if (record) {
+      Move &m = histPush(); m.grip = false; m.d = d; m.sd = sd; m.planeIdx = planeIdx; m.dir = dir;
     }
   }
 
@@ -213,8 +232,8 @@ public:
     int inAx[3], n = 0; for (int a = 0; a < 4; a++) if (a != d) inAx[n++] = a;
     Mat4 R; rotAxisInt(R, inAx, u, theta);
     applyToSlab(d, sd, R);
-    if (record && histN < HIST_MAX) {
-      Move &m = hist[histN++]; m.grip = true; m.d = d; m.sd = sd;
+    if (record) {
+      Move &m = histPush(); m.grip = true; m.d = d; m.sd = sd;
       m.u[0] = u[0]; m.u[1] = u[1]; m.u[2] = u[2]; m.theta = theta;
     }
   }

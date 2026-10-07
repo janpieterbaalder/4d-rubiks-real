@@ -1,0 +1,55 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  engine:
+    name: Engine, game en firmware-pariteit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: opstelling 4d rubiks real
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: engine.js (28 checks)
+        run: node engine.test.js
+      - name: C++-firmware-engine == engine.js
+        env:
+          PARITY_REQUIRE_CXX: '1'
+        run: node firmware/test/parity.test.mjs
+      - name: game-tests (jsdom)
+        working-directory: opstelling 4d rubiks real/game
+        run: |
+          npm install --no-save --no-package-lock jsdom@29
+          node test/math.test.js
+          node test/levels.test.js
+
+  bench:
+    name: 3D-werkbank (headless smoke test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: opstelling 4d rubiks real
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Playwright + Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: smoke test
+        run: node tools/smoke.mjs --shot smoke.png
+      - name: screenshot bewaren
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: werkbank-screenshot
+          path: opstelling 4d rubiks real/smoke.png
+          if-no-files-found: ignore

@@ -38,7 +38,7 @@ Dat weegt ruimschoots op tegen de Mega-krapte.
 ESP32 GPIO 13 ──► 74AHCT125 (in)        74AHCT125 (uit) ──[ 330Ω ]──► DIN (led #0)
 74AHCT125: VCC = 5V, GND gedeeld met ESP32 (anders is de 5V-uitgang ongeldig)
 5V-voeding ──► ESP32 5V/VIN-pin (de onboard-regelaar maakt er 3,3V van) — NOOIT 5V op 3V3
-5V-voeding ──► led-rig +5V (#0) + power-injectie (arms R/U/B), 1000µF bij #0, GEMEENSCHAPPELIJKE GND
+5V-voeding ──► led-rig +5V (#0) + power-injectie (#54 L, #108 D, #162 B), 1000µF bij #0, GEMEENSCHAPPELIJKE GND
 ```
 
 Alle led-stroom-, injectie-, zekering- en draaddikte-regels zijn identiek aan `BEDRADING.md §4`.

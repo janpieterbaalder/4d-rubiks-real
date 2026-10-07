@@ -88,6 +88,12 @@ Kleurcodes komen overeen met de 3D-werkbank: 🔴 +5V · ⚫ GND · 🟡 Data 3,
 | Elco **+** | Led-rig **+5V** | 🔴 | 1000µF |
 | Elco **−** (streep) | Led-rig **GND** | ⚫ | **let op polariteit** |
 
+> **Praktisch: een ingangsprintje.** Zet de 330Ω en de 1000µF samen op een klein stukje
+> gaatjesprint met een 3-polige schroefklem (**5V · GND · DATA**), geklemd op de staaf direct
+> onder de middelste kubus. De kabelboom van de werkbank eindigt in die schroefklem; vanaf het
+> printje lopen drie korte draadjes naar led #0. Zo zitten weerstand en elco binnen enkele cm
+> van led #0 — precies zoals in de 3D-werkbank.
+
 ### Controller (draadloos — geen shield, geen dongle)
 | Van | Naar | Kleur | Opmerking |
 |-----|------|-------|-----------|
@@ -101,10 +107,10 @@ Kleurcodes komen overeen met de 3D-werkbank: 🔴 +5V · ⚫ GND · 🟡 Data 3,
 > **Husselen/Reset** zitten op de controller (**SELECT/START**) — losse fysieke knoppen zijn niet nodig.
 
 ### Power-injectie (zie §4)
-| Van | Naar | Kleur |
-|---|---|---|
-| Zekering `out` | Led-rig **+5V** bij rechter/boven/achter-arm | 🔴 |
-| Voeding **GND** | Led-rig **GND** bij dezelfde armen | ⚫ |
+| Van | Naar | Kleur | Opmerking |
+|---|---|---|---|
+| Zekering `out` | Led-rig **+5V** bij de linker / onderste / achterste arm | 🔴 | op led **#54 / #108 / #162** (eerste led van die arm) |
+| Voeding **GND** | Led-rig **GND** bij dezelfde drie leds | ⚫ | altijd 5V én GND samen injecteren |
 
 ---
 
@@ -115,13 +121,13 @@ Kleurcodes komen overeen met de 3D-werkbank: 🔴 +5V · ⚫ GND · 🟡 Data 3,
         │ +5V ──[ AAN/UIT ≥10A ]──[ 10A zekering ]──┬──────────────► ESP32 5V/VIN-pin      │
         │                                           ├──────────────► Levelshifter VCC       │
         │                                           ├──────────────► Led-rig +5V (#0)       │
-        │                                           ├───► +5V injectie ► arm R              │
-        │                                           ├───► +5V injectie ► arm U              │
-        │                                           └───► +5V injectie ► arm B              │
+        │                                           ├───► +5V injectie ► arm L (#54)        │
+        │                                           ├───► +5V injectie ► arm D (#108)       │
+        │                                           └───► +5V injectie ► arm B (#162)       │
         │ GND ──────────────────────────────────────┬──────────────► ESP32 GND  (GEMEEN!)   │
         │                                            ├─────────────► Levelshifter GND        │
         │                                            ├─────────────► Led-rig GND (#0)         │
-        │                                            └───► GND injectie ► arms R/U/B         │
+        │                                            └───► GND injectie ► arms L/D/B         │
         └──────────────────────────────────────────────────────────────────────────────┘
 
    ESP32 GPIO13 ──🟡3,3V──► [ 74AHCT125 ] ──🟠5V──[ 330Ω ]──► DIN (led #0)
@@ -173,6 +179,11 @@ niet alleen aan het begin.
 
 - **Minimaal:** injecteer bij led #0 (kubus C) **plus** bij de start van elke verre arm.
 - **Vuistregel:** elke ~50–60 leds (≈ elke 2 kubussen) een 5V+GND-injectie.
+- **In deze bouw:** voeding op led **#0** (kubus C) en injectie op **#54** (L), **#108** (D) en
+  **#162** (B) — dus nooit meer dan 54 leds tussen twee voedingspunten. Elke injectie zit op de
+  eerste led van die arm, in de laag die naar het midden wijst (waar de ketting de arm binnenkomt),
+  zodat de draden langs de staven kunnen lopen. *(Een eerdere versie injecteerde bij R/U/B = #27,
+  #81, #162: dat liet een gat van 81 leds tussen #81 en #162, strijdig met de vuistregel.)*
 - Injecteer **altijd 5V én GND samen** op hetzelfde punt; de **datalijn blijft één doorgaande
   ketting** (data injecteer je niet).
 
