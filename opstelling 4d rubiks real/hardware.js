@@ -30,8 +30,8 @@ import { hotspotTexture, DEVKIT } from './bench/textures.js?v=11';
 
 // ---- wire categories: 3D insulation colour, legend colour, label, wire radius (scene units)
 const WIRE = {
-  pwr:  { color: 0xc8261e, label: '+5V (stroom +)', r: 0.04 },
-  gnd:  { color: 0x1d1e22, label: 'GND (massa / −)', r: 0.04 },
+  pwr:  { color: 0xc8261e, label: '+5V (stroom +)', r: 0.034 },
+  gnd:  { color: 0x1d1e22, label: 'GND (massa / −)', r: 0.034 },
   data: { color: 0xf2c418, label: 'Data 3,3V (ESP32 → levelshifter)', r: 0.022 },
   data5:{ color: 0xff7a1a, label: 'Data 5V (levelshifter → 330Ω → DIN)', r: 0.024 },
   bt:   { color: 0xa47bff, label: 'Bluetooth (draadloos, ingebouwd)', r: 0 },
@@ -184,15 +184,15 @@ const INFO = {
       <p><b>Slim eraan:</b> ze hangen in <b>één lange ketting</b> aan <u>één</u> datadraad. Elke
       led heeft een chip die "de eerste kleur voor mij houdt en de rest doorgeeft". Daarom is er
       maar <b>1 datapin</b> (GPIO13, via de levelshifter) nodig voor alle 189.</p>
-      <p><b>Ingang:</b> de kabelboom loopt langs de voet en het statief omhoog naar het
-      <b>ingangsprintje</b> onder de middelste kubus: schroefklemmen 5V/GND/DATA, de 1000µF-elco en de
-      330Ω-weerstand — vlak bij led #0.</p>
+      <p><b>Ingang:</b> de kabelboom loopt over de voet, langs de paal en <b>dóór</b> de onderste kubus
+      (via de geboorde middenkolom, net als de paal) omhoog naar het <b>ingangsprintje</b> onder de
+      middelste kubus: schroefklemmen 5V/GND/DATA, de 1000µF-elco en de 330Ω-weerstand — vlak bij led #0.</p>
       <p><b>Speel hier ook echt:</b> klik op een kubusje om een cel te kiezen, of gebruik de
       controller. Bij een draai verschuiven alléén de <b>kleuren</b> en loopt er een heldere golf in de
       draairichting — precies wat de WS2812 doet.</p>
       <p><b>Power-injectie:</b> omdat 5V over zo'n lange keten wegzakt, voer je elke 54 leds 5V + GND
-      opnieuw in (strip #54 linker arm, #108 onderste arm, #162 achterste arm) — de rode/zwarte
-      draadparen langs de staven.</p>`,
+      opnieuw in (strip #54 linker arm, #108 onderste arm, #162 achterste arm). Die draadparen lopen
+      binnendoor: door de kubussen en langs de staven, tussen de lagen kubusjes naar hun led.</p>`,
     notes: [['','Bedrading-volgorde van de leds: zie ORIENT in engine.js en het schema in BEDRADING.md — led-nummer 0..26 per kubus op een vaste plek, zodat de firmware-kleuren kloppen.'],
       ['','Zet “🧵 Led-draad” aan (Weergave): de kubusjes worden doorzichtig en je ziet hoe één datadraad alle 189 leds in serie rijgt — geel binnen een kubus, cyaan de sprong naar de volgende (volgorde C→R→L→U→D→F→B).']],
   },
@@ -373,8 +373,9 @@ const P_LOCAL = (x, y, z) => new THREE.Vector3(x, y, z).add(RIG.OFFSET);   // ri
 (function buildRig() {
   const g = new THREE.Group(); g.position.copy(RIG.OFFSET);
 
-  // ---- the frame (as in the Blender model): rods between the cube FACES, a pole from the
-  //      bottom (D) cube down into a round, weighted foot. Brushed aluminium, flanged ends.
+  // ---- the frame (as in the Blender model): rods run centre-to-centre THROUGH the cubes (the
+  //      cubies on the rod axes are bored), and the pole runs from the round, weighted foot up
+  //      through the bottom (D) cube. Brushed aluminium. The wiring follows the same bores.
   const alu = () => new THREE.MeshPhysicalMaterial({ color: 0xc3c8cf, metalness: 1, roughness: 0.32,
     anisotropy: 0.65, anisotropyRotation: Math.PI / 2 });
   const UPaxis = new THREE.Vector3(0, 1, 0);
@@ -389,12 +390,7 @@ const P_LOCAL = (x, y, z) => new THREE.Vector3(x, y, z).add(RIG.OFFSET);   // ri
     const m = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.035, 24), alu());
     m.position.copy(p); m.quaternion.setFromUnitVectors(UPaxis, n); return deco(m);
   };
-  for (const slot of ['R', 'L', 'U', 'D', 'F', 'B']) {
-    const n = new THREE.Vector3(...SLOTS[slot].pos).normalize();
-    const a = n.clone().multiplyScalar(HALF), b = n.clone().multiplyScalar(RIG.D - HALF);
-    rod(a, b, 0.045);
-    flange(a.clone().addScaledVector(n, 0.017), n); flange(b.clone().addScaledVector(n, -0.017), n.clone().negate());
-  }
+  for (const slot of ['R', 'L', 'U', 'D', 'F', 'B']) rod(new THREE.Vector3(0, 0, 0), new THREE.Vector3(...SLOTS[slot].pos), 0.045);
   // the stand: weighted round foot (disc + domed top + rubber ring) and the pole up to cube D
   const FOOT_BOTTOM = -RIG.OFFSET.y;                      // local y of the bench top
   const footMat = new THREE.MeshStandardMaterial({ color: 0x41464e, metalness: 0.85, roughness: 0.38 });
@@ -404,9 +400,7 @@ const P_LOCAL = (x, y, z) => new THREE.Vector3(x, y, z).add(RIG.OFFSET);   // ri
   dome.scale.set(1, 0.32, 1); dome.position.set(0, FOOT_BOTTOM + 0.4, 0);
   const rubber = deco(new THREE.Mesh(new THREE.CylinderGeometry(2.28, 2.28, 0.04, 72), new THREE.MeshStandardMaterial({ color: 0x0d0d0f, roughness: 0.95 })));
   rubber.position.set(0, FOOT_BOTTOM + 0.02, 0);
-  const poleTop = new THREE.Vector3(0, -RIG.D - HALF, 0);
-  rod(new THREE.Vector3(0, FOOT_BOTTOM + 0.9, 0), poleTop, 0.065);
-  flange(poleTop.clone().add(new THREE.Vector3(0, -0.017, 0)), new THREE.Vector3(0, -1, 0));
+  rod(new THREE.Vector3(0, FOOT_BOTTOM + 0.9, 0), new THREE.Vector3(0, -RIG.D, 0), 0.065);   // up into the core of D
   flange(new THREE.Vector3(0, FOOT_BOTTOM + 0.93, 0), UPaxis);
 
   // ---- 7 cells of 27 frosted cubies: white PETG that glows in the colour of the led inside.
@@ -507,30 +501,35 @@ const P_LOCAL = (x, y, z) => new THREE.Vector3(x, y, z).add(RIG.OFFSET);   // ri
   setTerm('cap', '+', ib.group, { p: ib.pad(-4, -1).add(cap.plus).setY(ib.size.y), d: up.clone() });
   setTerm('cap', '-', ib.group, { p: ib.pad(-4, -1).add(cap.minus).setY(ib.size.y), d: up.clone() });
 
-  // the short 3-core lead from the board up into cube C, to led #0 (DIN / 5V / GND)
+  // the short 3-core lead from the board INTO cube C (through the bore of its bottom face-centre
+  // cubie) and along the gap between the bottom and middle layer to led #0 (DIN / 5V / GND)
   const led0 = meshes.C[0].position;                              // (-1,-1,-1) corner of cube C
-  const entry = new THREE.Vector3(led0.x, -HALF - 0.005, led0.z);
+  const GAP = RIG.S / 2;                                          // a layer gap lies half a pitch off-centre
+  const entry = new THREE.Vector3(led0.x, led0.y + RIG.CUB / 2 + 0.005, led0.z);   // top face of led #0
   const pads = [TERM.rig.DIN.p, TERM.rig['5V'].padP.p, TERM.rig.GND.padP.p].map(v => g.worldToLocal(v.clone()));
   [WIRE.data5.color, WIRE.pwr.color, WIRE.gnd.color].forEach((col, n) => {
     const s = pads[n], off = (n - 1) * 0.03;
     const curve = new THREE.CatmullRomCurve3([s, s.clone().add(new THREE.Vector3(0, 0.12, 0)),
-      new THREE.Vector3(-0.25 + off, -HALF - 0.28, 0.1), new THREE.Vector3(entry.x + 0.1 + off, -HALF - 0.08, entry.z + 0.25),
-      entry.clone().add(new THREE.Vector3(off, 0, 0))], false, 'centripetal');
+      new THREE.Vector3(-0.12 + off, -HALF - 0.18, 0.12), new THREE.Vector3(-0.12 + off, -0.6, 0.12),
+      new THREE.Vector3(-0.2 + off, -GAP, 0.02), new THREE.Vector3(-0.48 + off, -GAP, -0.45),
+      new THREE.Vector3(led0.x + off, -GAP - 0.02, led0.z), entry.clone().add(new THREE.Vector3(off, 0, 0))], false, 'centripetal');
     const lead = new THREE.Mesh(new THREE.TubeGeometry(curve, 40, 0.014, 6, false),
       new THREE.MeshStandardMaterial({ color: col, roughness: 0.45 }));
     lead.userData.shell = true; lead.castShadow = true; g.add(lead);
   });
 
-  // power-injection contacts ON the first led of each injected arm (strip #54 L, #108 D, #162 B),
-  // on the face of that cubie that points to the centre (where the chain enters the arm)
+  // power-injection contacts INSIDE the first led of each injected arm (strip #54 L, #108 D,
+  // #162 B): that led sits in the arm's inner layer; the wires come in through the bore along
+  // the rod and reach it through the gap between the inner and the middle layer of cubies.
   const contact = (slot, axis) => {
-    const c = meshes[slot][0].position.clone(); c[axis] += (RIG.CUB / 2 + 0.012) * Math.sign(-SLOTS[slot].pos[['x', 'y', 'z'].indexOf(axis)]);
-    return c;
+    const k = ['x', 'y', 'z'].indexOf(axis), s = Math.sign(SLOTS[slot].pos[k]);   // towards the middle layer
+    const p = meshes[slot][0].position.clone(); p[axis] += (RIG.CUB / 2 + 0.005) * s;
+    const d = new THREE.Vector3(); d[axis] = s;
+    return { p, d, lead: 0.05 };
   };
-  const injL = contact('L', 'x'), injB = contact('B', 'z'), injD = contact('D', 'y');
-  setTerm('rig', 'INJ_L', g, { p: injL, d: new THREE.Vector3(1, 0, 0) });
-  setTerm('rig', 'INJ_B', g, { p: injB, d: new THREE.Vector3(0, 0, 1) });
-  setTerm('rig', 'INJ_D', g, { p: injD, d: new THREE.Vector3(0, 1, 0) });
+  setTerm('rig', 'INJ_L', g, contact('L', 'x'));
+  setTerm('rig', 'INJ_B', g, contact('B', 'z'));
+  setTerm('rig', 'INJ_D', g, contact('D', 'y'));
 })();
 
 /* --------------------------------------------------------- the wires --- */
@@ -542,13 +541,14 @@ const benchY = (x, z) => (x > MAT.X - MAT.W / 2 && x < MAT.X + MAT.W / 2 && z > 
 const onBench = (v, r) => new THREE.Vector3(v.x, benchY(v.x, v.z) + r, v.z);
 const W3 = (x, y, z) => new THREE.Vector3(x, y, z);
 
-// harness spine (world): bench -> over the foot -> up the pole -> around cube D -> rod -> board
+// harness spine (world): bench -> over the foot -> up beside the pole -> THROUGH the bored centre
+// column of cube D (like the pole) -> along the D-C rod -> input board
 const SPINE = [
-  W3(0.35, 0, 1.15), W3(0.28, 0, -1.25), W3(0.24, 0.5, -2.05), W3(0.2, 0.98, -3.2), W3(0.18, 1.12, -3.92),
-  W3(0.18, 2.03, -3.99), W3(1.02, 2.1, -3.2), W3(1.02, 3.98, -3.2), W3(0.3, 4.12, -3.97), W3(0.58, 5.18, -3.85),
+  W3(0.35, 0, 1.15), W3(0.28, 0, -1.25), W3(0.24, 0.5, -2.05), W3(0.2, 0.98, -3.2), W3(0.166, 1.12, -4.0),
+  W3(0.166, 1.95, -4.034), W3(0.166, 3.41, -4.034), W3(0.166, 4.15, -4.034), W3(0.22, 4.5, -3.99), W3(0.58, 5.18, -3.85),
 ];
-const SPINE_EXIT = { D: 7, LB: 8, MAIN: 9 };        // index of the spine point where a branch leaves
-const BUNDLE = 0.085;                               // slot spacing in the bundle
+const SPINE_EXIT = { D: 6, LB: 8, MAIN: 9 };        // index of the spine point where a branch leaves
+const BUNDLE = 0.07;                                // slot spacing in the bundle
 // the order in which harness wires take their slot in the bundle (n, b in the spine frame)
 const HARNESS_SLOT = {
   'lvl.out>res.in': [0, 0],
@@ -571,13 +571,16 @@ function offsetCurvePoints(curve, n, b, segs) {
 // branch paths (world) from the spine exit to the rig terminal, per injection / main wire
 function branchFor(key, pair) {
   const o = pair * 0.036;                                       // the two wires of a pair side by side
-  if (key.endsWith('INJ_D')) return { off: W3(o, 0, 0), pts: [W3(0.75 + o, 4.1, -3.45), W3(0.1 + o, 4.12, -4.3), W3(-0.5 + o, 4.14, -4.7)] };
-  if (key.endsWith('INJ_L')) return { off: W3(0, 0, o), pts: [W3(-0.2, 4.15, -4.42 + o), W3(-0.1, 6.36, -4.43 + o), W3(-0.55, 6.43, -4.42 + o),
-    W3(-0.97, 6.46, -4.4 + o), W3(-0.98, 7.3, -4.3 + o), W3(-1.6, 7.31, -4.26 + o), W3(-3.15, 7.31, -4.26 + o),
-    W3(-3.18, 7.02, -4.6 + o), W3(-3.2, 6.82, -4.8 + o)] };
-  if (key.endsWith('INJ_B')) return { off: W3(o, 0, 0), pts: [W3(-0.05 + o, 4.15, -4.45), W3(0.08 + o, 6.36, -4.45), W3(0.1 + o, 6.43, -4.8),
-    W3(0.1 + o, 6.46, -5.16), W3(0.1 + o, 7.3, -5.16), W3(0.13 + o, 7.31, -5.6), W3(0.13 + o, 7.31, -7.3),
-    W3(-0.15 + o, 7.05, -7.4), W3(-0.5 + o, 6.84, -7.44)] };
+  // D: from the bore of cube D into the gap between its middle and top layer, round the pole, to led #108
+  if (key.endsWith('INJ_D')) return { off: W3(o, 0, 0), pts: [W3(-0.12 + o, 3.41, -3.98), W3(-0.45 + o, 3.41, -4.55), W3(-0.56 + o, 3.41, -4.74)] };
+  // L / B: up behind the D-C rod, into cube C through its bottom bore, up to the height of the
+  // arm rods, out through the bore of the face-centre cubie, along the rod and into the arm
+  if (key.endsWith('INJ_L')) return { off: W3(0, 0, o), pts: [W3(-0.05, 4.75, -4.32 + o), W3(-0.09, 6.35, -4.32 + o),
+    W3(-0.09, 7.2, -4.32 + o), W3(-0.2, 7.32, -4.24 + o), W3(-0.6, 7.32, -4.2 + o), W3(-0.95, 7.32, -4.2 + o),
+    W3(-3.35, 7.32, -4.2 + o), W3(-3.7, 7.32, -4.2 + o), W3(-3.99, 7.25, -4.25 + o), W3(-3.99, 6.9, -4.7 + o)] };
+  if (key.endsWith('INJ_B')) return { off: W3(o, 0, 0), pts: [W3(0.15 + o, 4.75, -4.33), W3(0.09 + o, 6.35, -4.32),
+    W3(0.09 + o, 7.2, -4.32), W3(0.07 + o, 7.32, -4.45), W3(0.06 + o, 7.32, -4.8), W3(0.06 + o, 7.32, -5.12),
+    W3(0.06 + o, 7.32, -7.55), W3(0.06 + o, 7.32, -7.85), W3(0.0 + o, 7.25, -8.19), W3(-0.45 + o, 6.9, -8.19)] };
   return { off: W3(0, 0, 0), pts: [W3(0.52, 5.55, -3.12)] };    // main: in front of the board
 }
 // a seeded "hand laid" sideways offset so parallel bench wires do not look ruler-straight
@@ -674,7 +677,7 @@ function buildWires() {
       const lead = terminalRun(A, r, new THREE.Vector3().subVectors(sp[0], A.p).setY(0).normalize());
       const back = sp[0].clone().add(new THREE.Vector3().subVectors(sp[0], sp[1]).setY(0).normalize().multiplyScalar(0.55));
       const br = branchFor(key, cat === 'pwr' ? -1 : 1);
-      const end = [B.p.clone().addScaledVector(B.d, 0.16).add(br.off), B.p.clone().add(br.off)];
+      const end = [B.p.clone().addScaledVector(B.d, B.lead ?? 0.16).add(br.off), B.p.clone().add(br.off)];
       pts = [...lead, onBench(back, sp[0].y - benchY(back.x, back.z)), ...sp, ...br.pts, ...end];
     } else if (ab) {
       pts = jumperRoute(A, B);
@@ -728,7 +731,7 @@ function buildWires() {
     const t = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.014, 6, 40), new THREE.MeshStandardMaterial({ color: 0x0f1012, roughness: 0.6 }));
     t.rotation.x = Math.PI / 2; t.position.set(cx, y, cz); t.scale.set(1, 0.72, 1); scene.add(t);
   };
-  tie(1.45, 0.09, -4.08, 0.25); tie(1.85, 0.09, -4.08, 0.25); tie(4.7, 0.2, -4.06, 0.22);
+  tie(1.45, 0.083, -4.117, 0.26); tie(1.85, 0.083, -4.117, 0.26); tie(6.15, 0.02, -4.25, 0.18);
 }
 function mkWire(mesh, conn, curve, type) {
   const markers = [];

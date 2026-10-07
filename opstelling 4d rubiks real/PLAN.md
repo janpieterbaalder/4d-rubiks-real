@@ -164,7 +164,8 @@ C voor look & fabricage. Begin met A.
       voeding/schakelaar-kaartjes vervangen door de ESP32-bedrading (5V/VIN).
 - [x] **Analyse + verbeterronde** (okt 2026, cache v=11) — volledig verslag in [`../ANALYSE.md`](../ANALYSE.md):
       **realistische 3D-werkplaats** (PBR, schaduwen, bloom, gekleurd led-licht, onderdelen op ware grootte,
-      kabelboom langs het statief, ingangsprintje met 330Ω + 1000µF bij led #0; three.js r165 + Neutral-tone-mapping;
+      kabelboom langs de paal en dóór de kubussen (staven hart-op-hart), ingangsprintje met 330Ω + 1000µF bij led #0;
+      three.js r165 + Neutral-tone-mapping;
       `bench/stage.js` · `bench/parts.js` · `bench/textures.js`), **undo-bug in `tesseract_engine.h`** opgelost
       (ringbuffer) + **C++↔JS-pariteitstest**, **power-injectie L/D/B** (#54/#108/#162, max 54 leds per segment),
       framerate-onafhankelijke animatie, headless **smoke-test** en **GitHub Actions** voor alle tests.

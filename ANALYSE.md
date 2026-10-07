@@ -93,10 +93,12 @@ pitch ~25 mm, rig ~50 cm hoog):
 - **Draadloze controller** (DualShock-4-vorm, lichtbalk gloeit als hij verbonden is) en een paar
   werkplaats-accessoires (soldeertin, multimeter die 5,02 V meet).
 
-**Draden**: in plaats van bogen door de lucht liggen draden op de werkbank; dikte per functie (16 AWG voeding,
-22 AWG naar het breadboard, jumpers met dupont-huisjes). Alles naar de rig loopt als **kabelboom** over de
-voet, langs de paal (met tie-wraps), langs kubus D en de staaf naar het ingangsprintje; de injectieparen
-lopen langs de staven naar hun arm.
+**Draden**: in plaats van bogen door de lucht liggen draden op de werkbank; dikte per functie (16–18 AWG
+voeding, 22 AWG naar het breadboard, jumpers met dupont-huisjes). Alles naar de rig loopt als **kabelboom**
+over de voet en langs de paal (met tie-wraps), **dóór** kubus D via de geboorde middenkolom (zoals de paal in
+het Blender-model) en langs de staaf naar het ingangsprintje. De injectieparen lopen binnendoor — door kubus C,
+langs de staven en tussen de lagen kubusjes — naar de eerste led van hun arm. Staven en paal lopen
+hart-op-hart door de kubussen.
 
 **Bediening**: klik een onderdeel → de camera vliegt erheen en kadert het; labels schuiven niet meer over
 elkaar; laadscherm en een duidelijke melding als WebGL ontbreekt.

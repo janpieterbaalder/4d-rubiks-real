@@ -184,6 +184,9 @@ niet alleen aan het begin.
   eerste led van die arm, in de laag die naar het midden wijst (waar de ketting de arm binnenkomt),
   zodat de draden langs de staven kunnen lopen. *(Een eerdere versie injecteerde bij R/U/B = #27,
   #81, #162: dat liet een gat van 81 leds tussen #81 en #162, strijdig met de vuistregel.)*
+- **Kabelroute: dóór de kubussen, niet eromheen.** Paal en staven lopen hart-op-hart door de kubussen
+  (de kubusjes op de staafas zijn geboord). Leid de kabelboom en de injectieparen door diezelfde boringen
+  en door de spleten tussen de lagen kubusjes — zoals de paal door de onderste kubus in het Blender-model.
 - Injecteer **altijd 5V én GND samen** op hetzelfde punt; de **datalijn blijft één doorgaande
   ketting** (data injecteer je niet).
 
