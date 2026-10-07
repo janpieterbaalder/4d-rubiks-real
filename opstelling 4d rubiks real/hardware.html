@@ -2,7 +2,8 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0e1320">
 <title>Hardware-werkbank — Opstelling 4D Rubiks</title>
 <style>
   :root {
@@ -207,6 +208,73 @@
   .sysbtns { display: flex; flex-direction: column; gap: 8px; }
   .sys { border-radius: 999px; padding: 6px 12px; font-size: 10px; text-align: center; line-height: 1.1; }
   .sys small { color: var(--dim); }
+
+  /* ---- mobile dock (only on phones, see the media query below) ---- */
+  #mdock { display: none; }
+
+  /* ============ phones (iPhone portrait + landscape) ============
+     The desktop overlays (accordion, controller, actions, info) would cover the whole scene,
+     so on a phone they become sheets that a bottom dock opens one at a time. */
+  @media (max-width: 760px), (max-height: 500px) {
+    :root { --sat: env(safe-area-inset-top); --sar: env(safe-area-inset-right);
+      --sab: env(safe-area-inset-bottom); --sal: env(safe-area-inset-left);
+      --dock-h: 50px; --dock-top: calc(var(--sab) + 8px + var(--dock-h) + 8px); }
+    html, body { overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+    body { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+
+    #top { gap: 6px; padding: calc(var(--sat) + 6px) calc(var(--sar) + 8px) 6px calc(var(--sal) + 8px); }
+    #top .pill, #top a.tab { padding: 4px 10px; font-size: 12px; }
+    #title small, #power-state { display: none; }
+    #hint, #right-controls { display: none; }
+    #labels .lbl { font-size: 10.5px; padding: 1px 6px; }
+
+    #mdock { display: flex; gap: 6px; position: fixed; z-index: 35; height: var(--dock-h);
+      left: calc(var(--sal) + 8px); right: calc(var(--sar) + 8px); bottom: calc(var(--sab) + 8px); }
+    #mdock button { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 1px; background: rgba(22,29,46,.92); color: var(--ink);
+      border: 1px solid var(--line); border-radius: 12px; font: inherit; font-size: 11px; line-height: 1.1;
+      backdrop-filter: blur(6px); cursor: pointer; }
+    #mdock button .ic { font-size: 16px; }
+    #mdock button.on { border-color: var(--accent); color: var(--accent); }
+    #mdock #md-power.off { border-color: #ff5340; color: #ff8a7a; }
+
+    /* menu (accordion) -> sheet above the dock */
+    #left { display: none; top: auto; left: calc(var(--sal) + 8px); right: calc(var(--sar) + 8px);
+      width: auto; bottom: var(--dock-top); max-height: min(62vh, calc(100vh - 150px));
+      max-height: min(62dvh, calc(100dvh - 150px)); z-index: 32; overscroll-behavior: contain; }
+    body.m-menu #left { display: flex; }
+    #left .acc { flex: none; }
+    .acc > .acc-h { padding: 12px 12px; font-size: 11px; }
+    #menu button, .acc-b button, .acc-b label.tg { padding: 10px 11px; font-size: 13.5px; }
+
+    /* part info -> bottom sheet */
+    #info { left: calc(var(--sal) + 8px); right: calc(var(--sar) + 8px); width: auto; top: auto;
+      bottom: var(--dock-top); max-height: 46vh; max-height: 46dvh; z-index: 33; overscroll-behavior: contain; }
+    #info .close { font-size: 24px; padding: 4px 8px; right: 4px; top: 4px; }
+
+    #about { left: calc(var(--sal) + 8px); right: calc(var(--sar) + 8px); width: auto; transform: none;
+      top: calc(var(--sat) + 8px); max-height: calc(100vh - var(--dock-top) - var(--sat) - 16px);
+      max-height: calc(100dvh - var(--dock-top) - var(--sat) - 16px); z-index: 40; padding: 16px 16px 18px; }
+    #about .close { font-size: 26px; padding: 4px 8px; right: 4px; top: 4px; }
+
+    /* the controller: hidden until "Besturing" is tapped, then docked above the dock */
+    #ps3 { display: none; top: auto; right: auto; left: 50%; transform: translateX(-50%);
+      bottom: var(--dock-top); }
+    body.m-pad #ps3 { display: block; }
+    .ps3-body { padding: 10px 14px 12px; border-radius: 22px; }
+    .ps3-row { gap: 20px; }
+    .ctrl-lbl { font-size: 10px; }
+  }
+  /* phone in landscape: little height, so the controller lies in one row and the sheets sit on the right */
+  @media (max-height: 500px) and (orientation: landscape) {
+    #top .pill, #top a.tab { padding: 3px 9px; font-size: 11.5px; }
+    #ps3 { zoom: .9; }
+    .ps3-body { flex-direction: row; gap: 22px; padding: 8px 18px; }
+    #left, #info { left: auto; width: min(380px, 52vw); top: calc(var(--sat) + 50px);
+      max-height: none; }
+    #left { right: calc(var(--sar) + 8px); }
+    #mdock { left: auto; width: min(420px, 60vw); }
+  }
 </style>
 </head>
 <body>
@@ -398,6 +466,14 @@
     </div>
   </div>
 
+  <!-- PHONE: bottom dock — opens the menu / the controller as sheets (hidden on desktop) -->
+  <nav id="mdock" aria-label="Bediening">
+    <button id="md-menu" aria-controls="left"><span class="ic">☰</span>Menu</button>
+    <button id="md-pad" aria-controls="ps3"><span class="ic">🎮</span>Besturing</button>
+    <button id="md-4d"><span class="ic">🧭</span>4D-zicht</button>
+    <button id="md-power"><span class="ic">⏻</span>Aan/uit</button>
+  </nav>
+
   <script type="importmap">
   {
     "imports": {
@@ -406,7 +482,7 @@
     }
   }
   </script>
-  <script type="module" src="hardware.js?v=12"></script>
+  <script type="module" src="hardware.js?v=13"></script>
   <script>
     // "Over"-tab toggles the project-info overlay (separate from the per-component info panel)
     (function () {
@@ -415,6 +491,36 @@
       var close = document.getElementById('about-close');
       if (tab && panel) tab.addEventListener('click', function () { panel.classList.toggle('hidden'); });
       if (close && panel) close.addEventListener('click', function () { panel.classList.add('hidden'); });
+    })();
+
+    // PHONE dock: one sheet at a time (menu or controller); a part's info or "Over" closes the menu
+    (function () {
+      var body = document.body, $ = function (id) { return document.getElementById(id); };
+      var bMenu = $('md-menu'), bPad = $('md-pad'), bPow = $('md-power');
+      function sync() {
+        bMenu.classList.toggle('on', body.classList.contains('m-menu'));
+        bPad.classList.toggle('on', body.classList.contains('m-pad'));
+        var off = $('power-state').querySelector('b').textContent.trim() === 'UIT';
+        bPow.classList.toggle('off', off);
+      }
+      function sheet(name) {
+        var open = !body.classList.contains(name);
+        body.classList.remove('m-menu', 'm-pad');
+        if (open) body.classList.add(name);
+        if (open) $('about').classList.add('hidden');
+        if (open && name === 'm-menu') $('info-close').click();
+        sync();
+      }
+      bMenu.addEventListener('click', function () { sheet('m-menu'); });
+      bPad.addEventListener('click', function () { sheet('m-pad'); });
+      $('md-4d').addEventListener('click', function () { $('btn-4dreset').click(); });
+      bPow.addEventListener('click', function () { $('btn-power').click(); });
+      // picking a part from the menu: close the sheet so the camera flight + info stay visible
+      $('menu').addEventListener('click', function (e) {
+        if (e.target.closest('button')) { body.classList.remove('m-menu'); sync(); }
+      });
+      $('about-tab').addEventListener('click', function () { body.classList.remove('m-menu', 'm-pad'); sync(); });
+      new MutationObserver(sync).observe($('power-state'), { subtree: true, childList: true, characterData: true });
     })();
   </script>
 </body>
