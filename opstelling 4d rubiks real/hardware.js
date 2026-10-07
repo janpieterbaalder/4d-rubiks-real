@@ -221,7 +221,14 @@ try {
 const { scene, camera, controls } = stage;
 const CAM0 = new THREE.Vector3(18.5, 15.5, 27.5);
 const TARGET0 = new THREE.Vector3(0.4, 5.0, -1.0);
-camera.position.copy(CAM0); controls.target.copy(TARGET0);
+// a narrow (portrait phone) screen sees less sideways, so the home view steps back to keep the bench in frame
+const PHONE_MQ = matchMedia('(max-width: 760px), (max-height: 500px)');
+const PHONE = PHONE_MQ.matches;
+const camHome = () => {
+  const k = THREE.MathUtils.clamp((1.4 / (innerWidth / innerHeight)) ** 0.6, 1, 1.9);
+  return TARGET0.clone().addScaledVector(CAM0.clone().sub(TARGET0), k);
+};
+camera.position.copy(camHome()); controls.target.copy(TARGET0);
 
 const MAT_TOP = 0.06;     // the parts stand on the ESD mat
 
@@ -1122,7 +1129,8 @@ function flyTo(pos, target, ms = 900) {
 function focusPart(id) {
   const box = new THREE.Box3().setFromObject(PART_GROUP[id]);
   const sph = box.getBoundingSphere(new THREE.Sphere());
-  const fov = THREE.MathUtils.degToRad(camera.fov);
+  const fovV = THREE.MathUtils.degToRad(camera.fov);
+  const fov = Math.min(fovV, 2 * Math.atan(Math.tan(fovV / 2) * camera.aspect));   // portrait: width is the limit
   const dist = THREE.MathUtils.clamp(sph.radius / Math.sin(fov / 2) * 1.35, 0.9, 40);
   const dir = camera.position.clone().sub(controls.target).normalize();
   if (dir.y < 0.3) { dir.y = 0.3; dir.normalize(); }
@@ -1174,9 +1182,16 @@ function highlightWires(id) {
 
 /* --------------------------------------------------------- raycast clicking --- */
 const ray = new THREE.Raycaster();
-let downXY = null;
-canvas.addEventListener('pointerdown', e => { downXY = [e.clientX, e.clientY]; });
+let downXY = null, multiTouch = false;
+const touching = new Set();              // a pinch / two-finger pan is never a tap
+canvas.addEventListener('pointerdown', e => {
+  touching.add(e.pointerId);
+  if (touching.size > 1) multiTouch = true; else { multiTouch = false; downXY = [e.clientX, e.clientY]; }
+});
+canvas.addEventListener('pointercancel', e => { touching.delete(e.pointerId); downXY = null; });
 canvas.addEventListener('pointerup', e => {
+  touching.delete(e.pointerId);
+  if (multiTouch) { downXY = null; return; }
   if (!downXY) return;
   const moved = Math.hypot(e.clientX - downXY[0], e.clientY - downXY[1]); downXY = null;
   if (moved > 6) return;
@@ -1192,13 +1207,14 @@ canvas.addEventListener('pointerup', e => {
 });
 
 /* --------------------------------------------------------- view toggles --- */
-let flowOn = true, labelsOn = true;
+let flowOn = true, labelsOn = !PHONE;     // phone: 13 labels would bury the scene -> off, one tap turns them on
 const tgFlow = document.getElementById('tg-flow');
 const tgLabels = document.getElementById('tg-labels');
+tgLabels.classList.toggle('on', labelsOn); elLabels.style.display = labelsOn ? 'block' : 'none';
 tgFlow.onclick = () => { flowOn = !flowOn; tgFlow.classList.toggle('on', flowOn); };
 tgLabels.onclick = () => { labelsOn = !labelsOn; tgLabels.classList.toggle('on', labelsOn);
   elLabels.style.display = labelsOn ? 'block' : 'none'; };
-document.getElementById('btn-reset-view').onclick = () => flyTo(CAM0, TARGET0);
+document.getElementById('btn-reset-view').onclick = () => flyTo(camHome(), TARGET0);
 
 let frameSweep = null;
 document.getElementById('btn-frame').onclick = () => { frameSweep = { t: 0 }; };
@@ -1316,6 +1332,26 @@ function updateLabels() {
   }
 }
 
+// phone: a sheet (part info / controller) covers part of the screen, so the picture glides out from under
+// it — the orbit centre stays the same, only the projection window shifts. Portrait: up; landscape: the
+// info sheet sits on the right (picture moves left), the controller at the bottom (picture moves up).
+const viewShift = { x: 0, y: 0 };
+function updateViewShift(dt) {
+  const phone = PHONE_MQ.matches, portrait = innerHeight > innerWidth;
+  const info = !elInfo.classList.contains('hidden'), pad = document.body.classList.contains('m-pad');
+  const want = { x: 0, y: 0 };
+  if (phone && portrait) want.y = info ? 0.22 : pad ? 0.2 : 0;
+  else if (phone) { want.x = info ? 0.2 : 0; want.y = pad && !info ? 0.16 : 0; }
+  const k = Math.min(1, dt * 7);
+  for (const a of ['x', 'y']) {
+    viewShift[a] += (want[a] - viewShift[a]) * k;
+    if (Math.abs(want[a] - viewShift[a]) < 1e-3) viewShift[a] = want[a];
+  }
+  if (viewShift.x || viewShift.y) camera.setViewOffset(innerWidth, innerHeight,
+    viewShift.x * innerWidth, viewShift.y * innerHeight, innerWidth, innerHeight);
+  else if (camera.view?.enabled) camera.clearViewOffset();
+}
+
 const clock = new THREE.Clock();
 let t = 0, firstFrame = true;
 function tick() {
@@ -1375,6 +1411,7 @@ function tick() {
   // a selected PART breathes softly (the rig's leds breathe via the game)
   if (selected && PART_GROUP[selected]) tintPart(selected, 0.05 + 0.07 * (0.5 + 0.5 * Math.sin(t * 3)));
 
+  updateViewShift(dt);
   updateLabels();
   stage.render();
   if (firstFrame) { firstFrame = false; elLoading?.classList.add('done'); }

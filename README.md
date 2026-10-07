@@ -48,7 +48,7 @@ PS3-controller (of de toetsen tussen haakjes): **D-pad** = bewegen in het grondv
 cd "opstelling 4d rubiks real"
 node engine.test.js                 # 28 checks: de engine
 node firmware/test/parity.test.mjs  # C++-firmware-engine == engine.js (g++/clang++)
-node tools/smoke.mjs                # 3D-werkbank headless (npm i playwright)
+node tools/smoke.mjs                # 3D-werkbank headless: desktop + iPhone 15 Pro (npm i playwright)
 ```
 
 Alle tests (ook die van de game) draaien automatisch in GitHub Actions. De volledige analyse van deze

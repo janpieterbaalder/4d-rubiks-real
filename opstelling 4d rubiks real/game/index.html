@@ -17,6 +17,18 @@
     font: 600 13px/1 Inter, system-ui, sans-serif; text-decoration: none; white-space: nowrap;
     backdrop-filter: blur(6px); transition: border-color .15s, background .15s; }
   .back-to-rig:hover { border-color: #ffd23d; background: rgba(30,38,60,.9); }
+  /* phones: the top bar has no room for the full label -> "⟵ 3D" */
+  @media (max-width: 760px) {
+    .back-to-rig { height: 36px; padding: 0 10px; margin-right: 6px; }
+    .back-to-rig .long { display: none; }
+    .top-right { gap: 8px; }
+  }
+  @media (max-width: 400px) {
+    .brand { gap: 10px; }
+    .brand-text h1 { font-size: 12px; letter-spacing: 0.16em; }
+    .stats { padding: 6px 10px; gap: 8px; }
+    .stat { min-width: 36px; }
+  }
 </style>
 </head>
 <body>
@@ -39,7 +51,7 @@
       </div>
 
       <div class="top-right">
-        <a class="back-to-rig" href="../hardware.html" title="Terug naar de 3D-omgeving">⟵ 3D-omgeving</a>
+        <a class="back-to-rig" href="../hardware.html" title="Terug naar de 3D-omgeving" aria-label="Terug naar de 3D-omgeving">⟵ 3D<span class="long">-omgeving</span></a>
         <button class="mini-help help-top" id="btn-help-top" title="How to play (H)" aria-label="How to play">?</button>
         <div class="stats">
           <div class="stat">

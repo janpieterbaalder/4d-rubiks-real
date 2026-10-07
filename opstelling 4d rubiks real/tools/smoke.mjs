@@ -5,7 +5,10 @@
      • the canvas really renders (not one flat colour),
      • keyboard play works: scramble, move, twist, undo (via the real key bindings),
      • clicking a part opens its info + wiring table, the led-chain view and the quality and
-       power toggles run without errors.
+       power toggles run without errors,
+     • phone (iPhone 15 Pro, portrait + landscape, touch): no sideways overflow on the three pages,
+       the dock opens the menu / controller sheets, everything stays on screen and a twist can be
+       played with taps alone.
    Run (from "opstelling 4d rubiks real"):  node tools/smoke.mjs   [--shot out.png]
    Needs Playwright (`npm i playwright` + `npx playwright install chromium`) and internet
    access for three.js from the CDN. PLAYWRIGHT_MODULE may point to a playwright index.mjs.
@@ -19,8 +22,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const shotIdx = process.argv.indexOf('--shot');
 const SHOT = shotIdx > 0 ? process.argv[shotIdx + 1] : null;
 
-let chromium;
-try { ({ chromium } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : 'playwright')); }
+let chromium, devices;
+try { ({ chromium, devices } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : 'playwright')); }
 catch (e) { console.error('FAIL  Playwright niet gevonden (npm i playwright) — ' + e.message); process.exit(1); }
 
 // ---- static server (no caching, like serve.py) ---------------------------------------
@@ -106,6 +109,66 @@ try {
   if (SHOT) await page.screenshot({ path: SHOT });
   await page.waitForTimeout(500);
   ok('geen console- of paginafouten', errors.length === 0, errors.slice(0, 3).join(' | '));
+  await page.close();
+
+  // ---- phone: iPhone 15 Pro (touch) ---------------------------------------------------
+  const inView = (p, sel) => p.evaluate(s => [...document.querySelectorAll(s)].every(e => {
+    const r = e.getBoundingClientRect();
+    return r.width > 0 && r.left >= -1 && r.top >= -1 && r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1;
+  }), sel);
+  const noOverflow = p => p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
+  const shown = (p, sel) => p.evaluate(s => getComputedStyle(document.querySelector(s)).display !== 'none', sel);
+  for (const [name, dev] of [['portret', devices['iPhone 15 Pro']], ['landschap', devices['iPhone 15 Pro landscape']]]) {
+    const ctx = await browser.newContext({ ...dev, deviceScaleFactor: 1 });
+    const mp = await ctx.newPage();
+    const merr = [];
+    mp.on('console', m => { if (m.type() === 'error') merr.push(m.text()); });
+    mp.on('pageerror', e => merr.push(e.message));
+    await mp.addInitScript(() => { try { localStorage.setItem('bench.quality', 'laag'); } catch (e) { /* ignore */ } });
+    await mp.goto(base + '/hardware.html?debug', { waitUntil: 'load' });
+    await mp.waitForFunction(() => window.__bench && document.getElementById('loading')?.classList.contains('done'), null, { timeout: 120000 });
+    const MB = fn => mp.evaluate(fn);
+    const msettle = async () => {
+      await MB(() => window.__bench.finishAnimations());
+      await mp.waitForFunction(() => !window.__bench.colorAnim, null, { timeout: 60000 });
+      await mp.waitForTimeout(150);
+    };
+    const tag = `iPhone ${name}:`;
+    ok(`${tag} geen horizontale overloop (werkbank)`, await noOverflow(mp));
+    ok(`${tag} dock zichtbaar, panelen + controller dicht`, await shown(mp, '#mdock') && await inView(mp, '#mdock button')
+      && !(await shown(mp, '#left')) && !(await shown(mp, '#ps3')) && !(await shown(mp, '#right-controls')));
+    ok(`${tag} topbalk past in beeld`, await inView(mp, '#top > :not(#power-state)'));
+    await mp.tap('#md-menu');
+    ok(`${tag} Menu opent het onderdelenpaneel binnen beeld`, await shown(mp, '#left') && await inView(mp, '#left'));
+    await mp.tap('#menu button:has-text("Levelshifter")'); await msettle();
+    ok(`${tag} onderdeel kiezen sluit het menu en toont info binnen beeld`,
+      !(await shown(mp, '#left')) && !(await mp.getAttribute('#info', 'class')).includes('hidden') && await inView(mp, '#info'));
+    await mp.tap('#info-close');
+    await mp.tap('#md-pad');
+    ok(`${tag} Besturing toont de controller volledig binnen beeld`, await shown(mp, '#ps3') && await inView(mp, '#ps3 button'));
+    await mp.tap('#ps3 [data-mv="E"]'); await msettle();
+    const mBefore = await MB(() => JSON.stringify(window.__bench.puzzle.pieces.map(p => p.cur)));
+    await mp.tap('#ps3 [data-dir="1"]'); await mp.tap('#ps3 [data-plane="0"]'); await msettle();
+    ok(`${tag} draaien met alleen tikken (▶ + Z)`, await MB(() => JSON.stringify(window.__bench.puzzle.pieces.map(p => p.cur))) !== mBefore);
+    await mp.tap('#ps3 [data-act="undo"]'); await msettle();
+    ok(`${tag} undo via tik`, await MB(() => JSON.stringify(window.__bench.puzzle.pieces.map(p => p.cur))) === mBefore);
+    await mp.tap('#md-power');
+    ok(`${tag} Aan/uit in het dock`, (await mp.textContent('#power-state b')) === 'UIT');
+    await mp.tap('#md-power');
+    await mp.tap('#about-tab');
+    ok(`${tag} Over-paneel binnen beeld`, await inView(mp, '#about'));
+    await mp.tap('#about-close');
+
+    await mp.goto(base + '/bedrading.html', { waitUntil: 'load' });
+    await mp.waitForFunction(() => !document.getElementById('status'), null, { timeout: 30000 }).catch(() => {});
+    ok(`${tag} bedrading.html zonder horizontale overloop`, await noOverflow(mp));
+    await mp.goto(base + '/game/index.html', { waitUntil: 'load' });
+    await mp.waitForTimeout(1500);
+    ok(`${tag} game: topbalk en knoppen binnen beeld`, await noOverflow(mp)
+      && await inView(mp, '.hud-top .brand, .hud-top .top-right > *, .hud-actions'));
+    ok(`${tag} geen console- of paginafouten`, merr.length === 0, merr.slice(0, 3).join(' | '));
+    await ctx.close();
+  }
 } catch (e) {
   failed = true; console.log('FAIL  ' + e.message);
 } finally {
