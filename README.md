@@ -17,9 +17,9 @@ draairichting langs de ledjes loopt.
 
 | Map / bestand | Inhoud |
 |---|---|
-| **[`opstelling 4d rubiks real/`](opstelling%204d%20rubiks%20real/)** | De kern. `hardware.html` + `hardware.js` = interactieve 3D-werkbank (klik elk onderdeel voor uitleg + bedrading) **én** de speelbare digital twin op de 189 led-meshes. |
+| **[`opstelling 4d rubiks real/`](opstelling%204d%20rubiks%20real/)** | De kern. `hardware.html` + `hardware.js` (+ `bench/`) = realistische 3D-werkplaats met alle onderdelen op ware grootte (klik elk onderdeel voor uitleg + bedrading) **én** de speelbare digital twin op de 189 leds. |
 | `opstelling 4d rubiks real/engine.js` | De geverifieerde 4D-engine (twists, grips, centreren, 189-led-uitlezing, `ORIENT`). 28 tests in `engine.test.js`. |
-| `opstelling 4d rubiks real/firmware/` | Firmware: **`esp32_bluepad32/`** (aanbevolen: ESP32 + draadloze controller via Bluepad32) + `tesseract_rig.ino` (alternatief: Mega + PS3BT) + `tesseract_engine.h` (de engine 1-op-1 in C++). Plus een Wokwi-logica-testbank in `firmware/wokwi/`. |
+| `opstelling 4d rubiks real/firmware/` | Firmware: **`esp32_bluepad32/`** (aanbevolen: ESP32 + draadloze controller via Bluepad32) + `tesseract_rig.ino` (alternatief: Mega + PS3BT) + `tesseract_engine.h` (de engine 1-op-1 in C++, bewezen met `firmware/test/parity.test.mjs`). Plus Wokwi-logica-testbanken in `firmware/wokwi_esp32/` en `firmware/wokwi/`. |
 | `opstelling 4d rubiks real/BEDRADING.md` | De bouwhandleiding: onderdelenlijst, pin-voor-pin bedrading, stroombudget, led-volgorde, bouw-/testvolgorde. |
 | `opstelling 4d rubiks real/game/` | De complete, speelbare **4D-Rubiks-game** (Tesseract), meegeleverd en bereikbaar via de tab **🎮 Game** in de werkbank. |
 | **[`4d rubiks 3d model/`](4d%20rubiks%203d%20model/)** | Het Blender-model van de fysieke opstelling (7 kubussen, verbindingsstaafjes, staander met ronde voet) + renders. |
@@ -32,7 +32,7 @@ De pagina gebruikt ES-modules + Three.js (CDN), dus serveer de map lokaal:
 ```bash
 cd "opstelling 4d rubiks real"
 python serve.py
-# open daarna http://localhost:8000/hardware.html
+# open daarna http://localhost:8000/hardware.html (bij voorkeur in Edge of Chrome)
 ```
 
 ## Besturing
@@ -42,12 +42,17 @@ PS3-controller (of de toetsen tussen haakjes): **D-pad** = bewegen in het grondv
 **□ ✕ ○ △** = vlak XY / YZ / XZ / grip (`Z`/`X`/`C`/`V`), **L3** = 4D-rotatie (`Enter`),
 **R3** = undo (`Backspace`), **SELECT/START** = husselen/reset (`Shift+S`/`Shift+R`).
 
-## De engine testen
+## Testen
 
 ```bash
 cd "opstelling 4d rubiks real"
-node engine.test.js   # verwacht: 28 checks passed.
+node engine.test.js                 # 28 checks: de engine
+node firmware/test/parity.test.mjs  # C++-firmware-engine == engine.js (g++/clang++)
+node tools/smoke.mjs                # 3D-werkbank headless (npm i playwright)
 ```
+
+Alle tests (ook die van de game) draaien automatisch in GitHub Actions. De volledige analyse van deze
+verbeterronde — bevindingen, status en openstaande aanbevelingen — staat in **[ANALYSE.md](ANALYSE.md)**.
 
 ---
 

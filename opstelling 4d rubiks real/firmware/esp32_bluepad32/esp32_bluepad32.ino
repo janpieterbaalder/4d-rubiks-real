@@ -263,10 +263,12 @@ void afterMove() {
   beginAnim();
 }
 void doTwist(int planeIdx, int dir) {
+  if (animating) return;                 // one move at a time — like the bench (no 2nd move in the same input frame)
   int8_t d, sd; puzzle.viewToLogical(SLOTS[selSlot].vAxis, SLOTS[selSlot].vSign, d, sd);
   captureBefore(); puzzle.twist(d, sd, planeIdx, dir); afterMove();
 }
 void doGrip(float theta) {
+  if (animating) return;                 // one move at a time — like the bench (no 2nd move in the same input frame)
   int8_t d, sd; float u[3]; gripAxis(d, sd, u);
   captureBefore(); puzzle.grip(d, sd, u, theta); afterMove();
 }
@@ -289,22 +291,25 @@ void pressPlane(int p) {
   else armPlane = (armPlane == p ? -1 : p);
 }
 void press4D() {
+  if (animating) return;                 // one move at a time — like the bench (no 2nd move in the same input frame)
   if (selSlot != SLOT_C && isCentreCell(selSlot, selIdx)) {
     int8_t d, sd; puzzle.viewToLogical(SLOTS[selSlot].vAxis, SLOTS[selSlot].vSign, d, sd);
     captureBefore(); puzzle.centerCell(d, sd); selSlot = SLOT_C; selIdx = 13; armPlane = -1; beginAnim();
   }
 }
 void doUndo() {
+  if (animating) return;                 // one move at a time — like the bench (no 2nd move in the same input frame)
   captureBefore();
   if (puzzle.undo()) { solved = puzzle.isSolved(); beginAnim(); }
 }
 void moveSel(int dx, int dy, int dz) {
+  if (animating) return;                 // one move at a time — like the bench (no 2nd move in the same input frame)
   int gx, gy, gz; gcoord(selSlot, selIdx, gx, gy, gz);
   int8_t ns, ni;
   if (cellAt(gx + dx, gy + dy, gz + dz, ns, ni)) { selSlot = ns; selIdx = ni; armPlane = -1; }
 }
-void doScramble() { puzzle.resetView(); puzzle.scramble(26); scrambledOnce = true; solved = false; moveCount = 0; selSlot = SLOT_C; selIdx = 13; armPlane = -1; renderStatic(); }
-void doReset()    { puzzle.reset(); puzzle.resetView(); scrambledOnce = false; solved = true; moveCount = 0; selSlot = SLOT_C; selIdx = 13; armPlane = -1; renderStatic(); }
+void doScramble() { if (animating) return; puzzle.resetView(); puzzle.scramble(26); scrambledOnce = true; solved = false; moveCount = 0; selSlot = SLOT_C; selIdx = 13; armPlane = -1; renderStatic(); }
+void doReset()    { if (animating) return; puzzle.reset(); puzzle.resetView(); scrambledOnce = false; solved = true; moveCount = 0; selSlot = SLOT_C; selIdx = 13; armPlane = -1; renderStatic(); }
 
 void reportStatus() {
   int gx, gy, gz; gcoord(selSlot, selIdx, gx, gy, gz);
@@ -419,7 +424,7 @@ void setup() {
 void loop() {
   // 1) animation has priority: while a turn is sweeping, just render frames (input is ignored)
   if (animating) {
-    if (!renderAnim()) { animating = false; renderStatic(); }
+    if (!renderAnim()) { animating = false; renderStatic(); reportStatus(); }   // report the result of the move
     FastLED.show();
     BP32.update();              // keep the BT link serviced
     return;

@@ -17,3 +17,6 @@ __pycache__/
 *.pyc
 .DS_Store
 Thumbs.db
+
+# Local test dependencies (CI installs them on the fly)
+node_modules/

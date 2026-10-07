@@ -1,11 +1,18 @@
 # Opstelling 4D Rubiks — 3D werkbank + speelbare digital twin
 
-`hardware.html` is de **enige ingang**: één 3D-scène met zowel de **hardware** (een ESP32 met
-ingebouwde Bluetooth, een 3,3V→5V-levelshifter, een draadloze controller, voeding, weerstand,
-condensator, schakelaar en de 189-WS2812B-led-rig) als de **speelbare game** op diezelfde 189
-led-meshes — 7 oplichtende kubussen (midden + 6 armen, elk 27 leds = **189 RGB-leds**). Klik een
-onderdeel aan voor uitleg + bedrading, of speel direct (klik een ledje / controller-widget /
-toetsenbord). Aangestuurd door dezelfde, wiskundig geverifieerde engine als de game.
+`hardware.html` is de **enige ingang**: één realistische 3D-werkplaats met zowel de **hardware**
+op (geschatte) ware grootte op een werkbank (een ESP32-DevKitC met een 74AHCT125-levelshifter op
+een breadboard, een draadloze controller, voeding met GND-sterpunt, schakelaar, zekering met
+5V-verdeelblok, en de 189-WS2812B-led-rig met ingangsprintje) als de **speelbare game** op die 189
+leds — 7 kubussen (midden + 6 armen) van elk 27 matwitte kubusjes met een led erin. Klik een
+onderdeel aan voor uitleg + bedrading (de camera vliegt erheen), of speel direct (klik een kubusje /
+controller-widget / toetsenbord). Aangestuurd door dezelfde, wiskundig geverifieerde engine als de
+game.
+
+Weergave (`bench/stage.js`): fysiek gebaseerde materialen, een studio-reflectiekaart, zachte
+schaduwen, HDR-bloom op de leds, gekleurd licht dat de cellen op het frame en de werkbank werpen,
+en Neutral-tone-mapping (houdt de 8 spelkleuren verzadigd). Schaal: 1 eenheid = 4 cm. Onder
+**Weergave → Kwaliteit** schakel je tussen *hoog* en *laag* (voor telefoons/oudere laptops).
 
 Zie [PLAN.md](PLAN.md) voor het volledige plan en [BEDRADING.md](BEDRADING.md) voor de
 bouwhandleiding (BOM, pin-voor-pin, stroombudget, led-volgorde).
@@ -16,9 +23,9 @@ De pagina gebruikt ES-modules + Three.js (van een CDN), dus serveer de map even
 lokaal (dubbelklikken op `hardware.html` werkt niet vanwege module-beveiliging):
 
 ```powershell
-cd "C:\Users\rogst\Desktop\Prive\4d rubbiks real\opstelling 4d rubiks real"
+cd "<pad-naar-de-repo>\opstelling 4d rubiks real"
 python serve.py
-# open daarna http://localhost:8000/hardware.html in Chrome/Edge
+# open daarna http://localhost:8000/hardware.html in Edge (of Chrome)
 ```
 
 `serve.py` is een dev-server die caching uitschakelt, zodat wijzigingen altijd direct
@@ -32,7 +39,7 @@ Coördinaten (as-native, gelijk aan de fysieke led-plaatsing `ORIENT` en de firm
 x = links(−)/rechts(+), y = onder(−)/boven(+), z = achter(−)/voor(+).
 Kubus 0 in het midden (−1..1), de 6 armkubussen op ±3.
 
-Speel met de **PS3-controller-widget** onderin (1-op-1 met de echte draadloze controller), met
+Speel met de **controller-widget** rechtsboven (1-op-1 met de echte draadloze controller), met
 het **toetsenbord**, of klik direct een ledje aan.
 
 | PS3-controller | Toetsenbord | Actie |
@@ -83,7 +90,10 @@ de WS2812-leds** (de Arduino voert exact dezelfde golf uit).
 | --- | --- |
 | `engine.js` | Geverifieerde 4D-engine: twists, grips (180°/120°), centreren, `placements()`/`ledState()` (189-led-uitlezing + permutatie), `ORIENT` (kubus-oriëntatie = game-projectie) |
 | `engine.test.js` | 28 controles die bewijzen dat de engine-port klopt, incl. ORIENT == game-projectie (`node engine.test.js`) |
-| `hardware.html` + `hardware.js` | **De enige ingang**: interactieve 3D-werkbank (klik elk onderdeel voor uitleg + bedrading, gekleurde draadjes + stroom-/data-animatie) **én** de speelbare game op de 189 led-meshes (PS3-controller-widget + toetsenbord) |
+| `hardware.html` + `hardware.js` | **De enige ingang**: interactieve 3D-werkbank (klik elk onderdeel voor uitleg + bedrading, gekleurde draadjes + stroom-/data-animatie) **én** de speelbare game op de 189 leds (controller-widget + toetsenbord). `CONNECTIONS` = de bedradingstabel (single source of truth) |
+| `bench/stage.js` · `bench/parts.js` · `bench/textures.js` | De realistische scène: renderer + belichting + werkplaats + post-processing · de onderdelen-modellen op ware grootte · procedurele texturen (geen afbeeldingsbestanden nodig) |
+| `tools/smoke.mjs` | Headless browsertest van de werkbank: start zonder fouten, rendert, toetsenbord-spel (husselen/draaien/undo), infopaneel, weergaveknoppen |
+| `firmware/test/parity.test.mjs` | Bewijst dat de C++-engine (`tesseract_engine.h`) exact gelijk rekent aan `engine.js` (native gecompileerd, duizenden willekeurige zetten) |
 | `BEDRADING.md` | Bouwhandleiding: BOM, pin-voor-pin tabel, stroombudget, led-volgorde, bouw-/testvolgorde |
 | `firmware/esp32_bluepad32/esp32_bluepad32.ino` | **Aanbevolen rig-firmware**: ESP32 + draadloze controller via **Bluepad32** (ingebouwde Bluetooth, geen shield/dongle) — zie `firmware/esp32_bluepad32/README-esp32.md` |
 | `firmware/tesseract_rig.ino` | Alternatieve rig-firmware (Mega): leds + **PS3-controller (PS3BT via USB Host Shield)** + draai-animatie |
@@ -100,8 +110,13 @@ speel meteen op de 189 led-meshes. Zie **[BEDRADING.md](BEDRADING.md)** voor de 
 hardware-handleiding. Voor browser-logica-tests van de firmware zonder hardware: de
 Wokwi-testbank in [`firmware/wokwi/`](firmware/wokwi/).
 
-## Engine-test draaien
+## Tests draaien
 
 ```powershell
-node engine.test.js   # verwacht: 28 checks passed.
+node engine.test.js                 # 28 checks: engine.js == de game-projectie
+node firmware/test/parity.test.mjs  # C++-firmware-engine == engine.js (vereist g++ of clang++)
+node tools/smoke.mjs                # 3D-werkbank in headless Chromium (vereist: npm i playwright)
 ```
+
+De game-tests (`game/test/*.test.js`) vereisen `jsdom` (`npm i jsdom`). Alles draait ook
+automatisch in GitHub Actions (`.github/workflows/tests.yml`) bij elke push en pull request.
