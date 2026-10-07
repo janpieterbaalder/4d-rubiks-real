@@ -112,10 +112,11 @@ try {
   await page.close();
 
   // ---- phone: iPhone 15 Pro (touch) ---------------------------------------------------
-  const inView = (p, sel) => p.evaluate(s => [...document.querySelectorAll(s)].every(e => {
+  // m = required margin to the screen edge (a flush fit breaks with other font metrics)
+  const inView = (p, sel, m = -1) => p.evaluate(([s, m]) => [...document.querySelectorAll(s)].every(e => {
     const r = e.getBoundingClientRect();
-    return r.width > 0 && r.left >= -1 && r.top >= -1 && r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1;
-  }), sel);
+    return r.width > 0 && r.left >= m && r.top >= m && r.right <= innerWidth - m && r.bottom <= innerHeight - m;
+  }), [sel, m]);
   const noOverflow = p => p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
   const shown = (p, sel) => p.evaluate(s => getComputedStyle(document.querySelector(s)).display !== 'none', sel);
   for (const [name, dev] of [['portret', devices['iPhone 15 Pro']], ['landschap', devices['iPhone 15 Pro landscape']]]) {
@@ -164,8 +165,15 @@ try {
     ok(`${tag} bedrading.html zonder horizontale overloop`, await noOverflow(mp));
     await mp.goto(base + '/game/index.html', { waitUntil: 'load' });
     await mp.waitForTimeout(1500);
-    ok(`${tag} game: topbalk en knoppen binnen beeld`, await noOverflow(mp)
-      && await inView(mp, '.hud-top .brand, .hud-top .top-right > *, .hud-actions'));
+    ok(`${tag} game: topbalk en knoppen binnen beeld (≥8px marge)`, await noOverflow(mp)
+      && await inView(mp, '.hud-top .brand, .hud-top .top-right > *, .hud-actions', 8));
+    if (name === 'portret') {   // also the narrowest common phones (iPhone SE/mini 375, Android 360)
+      for (const w of [375, 360]) {
+        await mp.setViewportSize({ width: w, height: 659 }); await mp.waitForTimeout(300);
+        ok(`${tag} game-topbalk past ook op ${w}px`, await noOverflow(mp)
+          && await inView(mp, '.hud-top .brand, .hud-top .top-right > *', 8));
+      }
+    }
     ok(`${tag} geen console- of paginafouten`, merr.length === 0, merr.slice(0, 3).join(' | '));
     await ctx.close();
   }
