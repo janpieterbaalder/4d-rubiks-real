@@ -232,8 +232,8 @@ try {
     await mp.tap('#md-pad');          // straight from the info sheet: it closes, nothing lies over the controller
     ok(`${tag} Besturing toont de controller volledig binnen beeld, niet onder het info-sheet`, await shown(mp, '#ps3')
       && await inView(mp, '#ps3 button') && (await mp.getAttribute('#info', 'class')).includes('hidden')
-      && await mp.evaluate(() => [...document.querySelectorAll('#ps3 button')].every(b => {
-        const r = b.getBoundingClientRect(); return b.contains(document.elementFromPoint((r.left + r.right) / 2, (r.top + r.bottom) / 2));
+      && await mp.evaluate(() => [...document.querySelectorAll('#ps3 button')].every(b => {   // nothing else on top
+        const r = b.getBoundingClientRect(); return document.elementFromPoint((r.left + r.right) / 2, (r.top + r.bottom) / 2)?.closest('#ps3');
       })));
     await mp.tap('#ps3 [data-mv="E"]'); await msettle();
     const mBefore = await MB(() => JSON.stringify(window.__bench.puzzle.pieces.map(p => p.cur)));
