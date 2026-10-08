@@ -103,8 +103,9 @@ export function buildDIP14(text = '74AHCT125N') {
     const x = mm((3 - k) * 2.54);
     for (const s of [-1, 1]) {
       const px = s < 0 ? x : -x;                             // back row runs +x→−x, front row −x→+x
-      box(mm(0.5), mm(0.25), mm(1.0), leg, px, lift + mm(1.2), s * mm(3.55), g).castShadow = false;
-      box(mm(0.5), lift + mm(1.2), mm(0.25), leg, px, (lift + mm(1.2)) / 2, s * mm(3.95), g).castShadow = false;
+      // shoulder from the body edge (3.175 mm) out to the leg, which stands on the 7.62 mm row spacing
+      box(mm(0.5), mm(0.25), mm(0.76), leg, px, lift + mm(1.2), s * mm(3.555), g).castShadow = false;
+      box(mm(0.5), lift + mm(1.2), mm(0.25), leg, px, (lift + mm(1.2)) / 2, s * mm(3.81), g).castShadow = false;
     }
   }
   return { group: g, top: lift + bodyH };

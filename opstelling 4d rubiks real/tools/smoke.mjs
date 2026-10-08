@@ -2,8 +2,11 @@
    tools/smoke.mjs — headless browser smoke test for the 3D workbench (hardware.html).
    Starts a tiny static server, opens the page in headless Chromium (Playwright) and checks:
      • the scene starts without a single console error / page error,
-     • every row of the wiring table is drawn, the prototype layout (330Ω on the breadboard, 1000µF
-       in the distribution blocks, harness to led #0) is in place and no wire runs through the breadboard,
+     • every row of the wiring table is drawn and the prototype layout (330Ω on the breadboard, 1000µF
+       in the distribution blocks, harness to led #0) is in place,
+     • exact geometry and wiring (tools/bench-audit.mjs): no wire runs through a part, the breadboard,
+       the mat, the bench top or the rig frame, and every ESP32 pin, 74AHCT125 leg, 330Ω leg and wire
+       end sits in the right breadboard strip,
      • the canvas really renders (not one flat colour),
      • keyboard play works: scramble, move, twist, undo (via the real key bindings),
      • clicking a part opens its info + wiring table, the led-chain view and the quality and
@@ -19,6 +22,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { geometryAudit, breadboardNets } from './bench-audit.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const shotIdx = process.argv.indexOf('--shot');
@@ -81,16 +85,29 @@ try {
     const r = window.__bench.TERM.rig, ps = [r.DIN, r['5V'], r.GND].map(t => t && t.p);
     return ps.every(Boolean) && ps[0].distanceTo(ps[1]) < 0.1 && ps[1].distanceTo(ps[2]) < 0.1;
   }));
-  ok('geen draad loopt door het breadboard', await B(() => {
-    const b = window.__bench.bbBox;
-    return window.__bench.wires.filter(w => w.type !== 'bt').every(w => {
-      for (let i = 0; i <= 400; i++) {
-        const p = w.curve.getPoint(i / 400);
-        if (p.x > b.min.x && p.x < b.max.x && p.z > b.min.z && p.z < b.max.z && p.y < b.max.y - 1e-3) return false;
-      }
-      return true;
-    });
-  }));
+  // exact geometry: no wire (tube incl. its thickness) through a part, the breadboard, the mat, the bench
+  // top or the rig frame — see tools/bench-audit.mjs
+  const hits = await page.evaluate(geometryAudit);
+  ok('geen draad door onderdelen, breadboard, mat, werkbank of rig-frame', hits.length === 0, hits.slice(0, 3).join(' | '));
+  // electrical: every pin / leg / wire end in the right breadboard strip (printed column numbers),
+  // and nothing else shares a strip
+  const EXPECT = {
+    'achter-20': ['ESP32 5V', 'draad dist.5V>esp.5Vin'],
+    'achter-24': ['ESP32 IO13', 'draad esp.D13>lvl.in'],
+    'achter-25': ['ESP32 GND', 'draad dist.GND>esp.GNDin'],
+    'achter-44': ['74AHCT125 7 GND', 'draad dist.GND>lvl.GND', 'jumper 1OE-GND'],
+    'achter-48': ['74AHCT125 3 1Y', '330Ω poot 1'],
+    'achter-49': ['74AHCT125 2 1A', 'draad esp.D13>lvl.in'],
+    'achter-50': ['74AHCT125 1 1OE', 'jumper 1OE-GND'],
+    'voor-50': ['74AHCT125 14 VCC', 'draad dist.5V>lvl.VCC'],
+    'achter-52': ['330Ω poot 2', 'draad res.out>rig.DIN'],
+  };
+  const nets = await page.evaluate(breadboardNets);
+  const shared = Object.entries(nets.strips).filter(([, m]) => m.length > 1);
+  const same = (a, b) => [...a].sort().join('|') === [...b].sort().join('|');
+  ok('breadboard: elke pin, poot en draad in de juiste strook (ESP32-DevKitC V4, 74AHCT125)',
+    nets.errors.length === 0 && shared.length === Object.keys(EXPECT).length && shared.every(([k, m]) => EXPECT[k] && same(m, EXPECT[k])),
+    [...nets.errors, ...shared.filter(([k, m]) => !EXPECT[k] || !same(m, EXPECT[k])).map(([k, m]) => `${k}: ${m.join(' + ')}`)].slice(0, 3).join(' | '));
 
   // the canvas must show a real picture, not a flat clear colour
   const png = await page.locator('#scene').screenshot();

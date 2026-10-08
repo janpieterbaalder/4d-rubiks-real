@@ -175,6 +175,9 @@ C voor look & fabricage. Begin met A.
       op het breadboard, want daar loopt de led-stroom niet. De kabelboom brengt 5V/GND/DATA rechtstreeks naar
       led #0. Breadboard-jumpers gaan recht over de bordrand (liepen deels dóór het bord). Eindbouw: 330Ω +
       1000µF bij led #0 (`BEDRADING.md` §2).
+- [x] **Exacte draad-audit** (`tools/bench-audit.mjs`, in de smoke test): geen draad (mét dikte) door een
+      onderdeel, het breadboard, de mat, het werkbankblad of de rig-staven; elke ESP32-/74AHCT125-pin in de
+      juiste breadboard-strook. Breadboard-indeling met kolomnummers in `BEDRADING.md` §2.
 - [ ] Wokwi-project bijwerken: nieuwe `tesseract_engine.h` + `firmware/wokwi_esp32/sketch.ino` opnieuw uploaden
 - [ ] Beslissen over slangvolgorde van de leds binnen een kubus (vóór het solderen) — zie `ANALYSE.md` §4
 - [ ] Wokwi logica-testbank (`firmware/wokwi/sketch.ino`) draaien + bedrading op breadboard verifiëren

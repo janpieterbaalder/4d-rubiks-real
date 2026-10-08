@@ -102,6 +102,23 @@ voeding. "Zekering `out`" en "Voeding **GND**" hieronder betekenen dus: via die 
 > ca. 1A per contact), dus daar zou de elco op een zijtak zitten. De kabelboom brengt 5V, GND en
 > DATA rechtstreeks naar led #0.
 >
+> **Breadboard-indeling van het prototype** (830 gaatjes; kolomnummers en rijletters zoals op het bord
+> gedrukt; per kolom zijn **a–e** en **f–j** elk één strook):
+>
+> | Wat | Gaatje(s) | Zelfde strook als |
+> |---|---|---|
+> | ESP32-DevKitC, pinrij J2 | rij **i**, kolom 20 (5V) … 38 (3V3) | — |
+> | ESP32-DevKitC, pinrij J3 | rij **a**, kolom 20 (CLK) … 38 (GND) | — |
+> | 🔴 5V-draad naar de ESP32 | **20j** | J2-19 **5V** |
+> | 🟡 jumper GPIO13 → 1A | **24j** → **49h** | J2-15 **IO13** → pin 2 **1A** |
+> | ⚫ GND-draad naar de ESP32 | **25j** | J2-14 **GND** |
+> | 74AHCT125 (inkeping rechts) | pin 1–7 in rij **f**, kolom 50 → 44; pin 8–14 in rij **e**, kolom 44 → 50 | — |
+> | ⚫ jumper 1OE → GND | **50g** → **44g** | pin 1 **1OE** → pin 7 **GND** |
+> | ⚫ GND-draad naar de levelshifter | **44j** | pin 7 **GND** |
+> | 🔴 5V-draad naar de levelshifter | **50c** | pin 14 **VCC** |
+> | 330Ω | **48j** → **52j** | pin 3 **1Y** → vrije kolom 52 |
+> | 🟠 datadraad naar led #0 | **52h** | 330Ω-uitgang |
+>
 > **Eindbouw.** Verhuis de 330Ω en de 1000µF naar led #0, bijv. samen op een klein stukje
 > gaatjesprint met een 3-polige schroefklem (**5V · GND · DATA**) en drie korte draadjes naar
 > led #0. Adafruit adviseert de weerstand aan de led-kant van de datadraad; bij de korte draad van

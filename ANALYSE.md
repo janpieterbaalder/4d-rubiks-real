@@ -65,6 +65,8 @@ Ernst: **H** = verkeerd gedrag voor de gebruiker · **M** = inconsistentie/ontwe
 | 25 | Werkbank | Ingangsprintje: schema klopte (5V/GND/DATA, elco parallel met de streep aan GND, 330Ω in serie), maar de tekening miste de verbinding DATA-klem → 330Ω en het −-draadje van de elco kruiste over de +-verbinding | L | **Vervallen**: printje vervangen door de prototype-opstelling (#11) |
 | 26 | Werkbank | 5 draden naar het breadboard liepen deels dóór de printplaat (o.a. 5V en GND naar de ESP32) | L | **Opgelost**: jumpers gaan recht omhoog en over de bordrand; de smoke test controleert het |
 | 27 | Hardware-ontwerp | Ongebruikte ingangen van de 74AHCT125 (2A–4A, 2OE–4OE) zweven; de datasheet eist vastleggen op VCC/GND | L | **Gedocumenteerd** (`BEDRADING.md` §2, info-kaartje levelshifter); niet in 3D getekend |
+| 28 | Werkbank | Exacte geometrie-audit (draad als buis mét dikte): de GND-jumper raakte bij het opstijgen de ESP32-print (0,14 mm), 4 kabelboomdraden sneden in de achterrand van de mat (tot 1,3 mm), het netsnoer door de achterrand van het werkbankblad (2,9 mm) en 3 injectiedraden door de staven in de rig (0,3–1,4 mm). Daarnaast boog de draad al binnen het dupont-huisje en stonden de DIP-poten 0,14 mm naast de rijafstand van 7,62 mm | L | **Opgelost**; `tools/bench-audit.mjs` controleert dit in de smoke test |
+| 29 | Werkbank | Aansluitingen nagelopen vanuit de 3D-geometrie tegen de pinout van de ESP32-DevKitC V4 (J2/J3) en de 74AHCT125-datasheet: elke pin, poot en elk draadeinde zit in de juiste breadboard-strook, niets anders deelt een strook | — | **Klopt** (geen fout gevonden); vastgelegd in de smoke test en als tabel in `BEDRADING.md` §2 |
 
 ## 3. De 3D-omgeving: wat er veranderd is
 
@@ -142,7 +144,7 @@ armen loopt via het midden. Laten zoals hij is.
 |---|---|---|
 | `node engine.test.js` | engine.js = game-projectie | 28/28 |
 | `node firmware/test/parity.test.mjs` | C++-engine = engine.js over 4.033 willekeurige operaties (189 leds, sticker-id's, isSolved, undo-diepte, 4D-zicht) | groen (rood vóór fix #1) |
-| `node tools/smoke.mjs` | werkbank start foutloos, alle verbindingen getekend, prototype-opstelling, geen draad door het breadboard, rendert, toetsenbord-spel, infopaneel, weergaveknoppen; iPhone 15 Pro portret + landschap | 46/46 |
+| `node tools/smoke.mjs` | werkbank start foutloos, alle verbindingen getekend, prototype-opstelling, exacte geometrie (geen draad door onderdelen, breadboard, mat, werkbank of rig-frame), elke pin in de juiste breadboard-strook, rendert, toetsenbord-spel, infopaneel, weergaveknoppen; iPhone 15 Pro portret + landschap | 47/47 |
 | `game/test/*.test.js` | wiskunde + academy van de game (jsdom) | groen |
 
 Alles draait in GitHub Actions (`.github/workflows/tests.yml`) bij elke push en pull request.

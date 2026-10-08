@@ -92,7 +92,8 @@ de WS2812-leds** (de Arduino voert exact dezelfde golf uit).
 | `engine.test.js` | 28 controles die bewijzen dat de engine-port klopt, incl. ORIENT == game-projectie (`node engine.test.js`) |
 | `hardware.html` + `hardware.js` | **De enige ingang**: interactieve 3D-werkbank (klik elk onderdeel voor uitleg + bedrading, gekleurde draadjes + stroom-/data-animatie) **én** de speelbare game op de 189 leds (controller-widget + toetsenbord). `CONNECTIONS` = de bedradingstabel (single source of truth) |
 | `bench/stage.js` · `bench/parts.js` · `bench/textures.js` | De realistische scène: renderer + belichting + werkplaats + post-processing · de onderdelen-modellen op ware grootte · procedurele texturen (geen afbeeldingsbestanden nodig) |
-| `tools/smoke.mjs` | Headless browsertest van de werkbank: start zonder fouten, alle verbindingen getekend, geen draad door het breadboard, rendert, toetsenbord-spel (husselen/draaien/undo), infopaneel, weergaveknoppen, iPhone 15 Pro |
+| `tools/smoke.mjs` | Headless browsertest van de werkbank: start zonder fouten, alle verbindingen getekend, rendert, toetsenbord-spel (husselen/draaien/undo), infopaneel, weergaveknoppen, iPhone 15 Pro |
+| `tools/bench-audit.mjs` | Exacte controles voor de smoke test: geen draad (mét dikte) door een onderdeel, het breadboard, de mat, het werkbankblad of de rig; elke ESP32-pin, 74AHCT125-poot en elk draadeinde in de juiste breadboard-strook |
 | `firmware/test/parity.test.mjs` | Bewijst dat de C++-engine (`tesseract_engine.h`) exact gelijk rekent aan `engine.js` (native gecompileerd, duizenden willekeurige zetten) |
 | `BEDRADING.md` | Bouwhandleiding: BOM, pin-voor-pin tabel, stroombudget, led-volgorde, bouw-/testvolgorde |
 | `firmware/esp32_bluepad32/esp32_bluepad32.ino` | **Aanbevolen rig-firmware**: ESP32 + draadloze controller via **Bluepad32** (ingebouwde Bluetooth, geen shield/dongle) — zie `firmware/esp32_bluepad32/README-esp32.md` |
