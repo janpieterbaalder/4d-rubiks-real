@@ -2,8 +2,8 @@
 
 `hardware.html` is de **enige ingang**: één realistische 3D-werkplaats met zowel de **hardware**
 op (geschatte) ware grootte op een werkbank (een ESP32-DevKitC met een 74AHCT125-levelshifter op
-een breadboard, een draadloze controller, voeding met GND-sterpunt, schakelaar, zekering met
-5V-verdeelblok, en de 189-WS2812B-led-rig met ingangsprintje) als de **speelbare game** op die 189
+een breadboard met de 330Ω, een draadloze controller, voeding, schakelaar, zekering,
+verdeelblokken 5V/GND met de 1000µF, en de 189-WS2812B-led-rig) als de **speelbare game** op die 189
 leds — 7 kubussen (midden + 6 armen) van elk 27 matwitte kubusjes met een led erin. Klik een
 onderdeel aan voor uitleg + bedrading (de camera vliegt erheen), of speel direct (klik een kubusje /
 controller-widget / toetsenbord). Aangestuurd door dezelfde, wiskundig geverifieerde engine als de
@@ -92,7 +92,8 @@ de WS2812-leds** (de Arduino voert exact dezelfde golf uit).
 | `engine.test.js` | 28 controles die bewijzen dat de engine-port klopt, incl. ORIENT == game-projectie (`node engine.test.js`) |
 | `hardware.html` + `hardware.js` | **De enige ingang**: interactieve 3D-werkbank (klik elk onderdeel voor uitleg + bedrading, gekleurde draadjes + stroom-/data-animatie) **én** de speelbare game op de 189 leds (controller-widget + toetsenbord). `CONNECTIONS` = de bedradingstabel (single source of truth) |
 | `bench/stage.js` · `bench/parts.js` · `bench/textures.js` | De realistische scène: renderer + belichting + werkplaats + post-processing · de onderdelen-modellen op ware grootte · procedurele texturen (geen afbeeldingsbestanden nodig) |
-| `tools/smoke.mjs` | Headless browsertest van de werkbank: start zonder fouten, rendert, toetsenbord-spel (husselen/draaien/undo), infopaneel, weergaveknoppen |
+| `tools/smoke.mjs` | Headless browsertest van de werkbank: start zonder fouten, alle verbindingen getekend, rendert, toetsenbord-spel (husselen/draaien/undo), infopaneel, weergaveknoppen, iPhone 15 Pro |
+| `tools/bench-audit.mjs` | Exacte controles voor de smoke test: geen draad (mét dikte) door een onderdeel, het breadboard, de mat, het werkbankblad of de rig; elke ESP32-pin, 74AHCT125-poot en elk draadeinde in de juiste breadboard-strook |
 | `firmware/test/parity.test.mjs` | Bewijst dat de C++-engine (`tesseract_engine.h`) exact gelijk rekent aan `engine.js` (native gecompileerd, duizenden willekeurige zetten) |
 | `BEDRADING.md` | Bouwhandleiding: BOM, pin-voor-pin tabel, stroombudget, led-volgorde, bouw-/testvolgorde |
 | `firmware/esp32_bluepad32/esp32_bluepad32.ino` | **Aanbevolen rig-firmware**: ESP32 + draadloze controller via **Bluepad32** (ingebouwde Bluetooth, geen shield/dongle) — zie `firmware/esp32_bluepad32/README-esp32.md` |

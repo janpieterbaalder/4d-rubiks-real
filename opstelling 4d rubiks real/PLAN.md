@@ -169,6 +169,15 @@ C voor look & fabricage. Begin met A.
       `bench/stage.js` · `bench/parts.js` · `bench/textures.js`), **undo-bug in `tesseract_engine.h`** opgelost
       (ringbuffer) + **C++↔JS-pariteitstest**, **power-injectie L/D/B** (#54/#108/#162, max 54 leds per segment),
       framerate-onafhankelijke animatie, headless **smoke-test** en **GitHub Actions** voor alle tests.
+- [x] **Prototype-opstelling in de werkbank** (cache v=14): het ingangsprintje onder de middelste kubus is weg.
+      De 330Ω steekt op het breadboard direct achter de 74AHCT125 (kolom van 1Y, geen extra draadje); de 1000µF
+      zit met zijn poten in de nieuwe **verdeelblokken 5V + GND** (GND-sterpunt naast het 5V-blok) — bewust niet
+      op het breadboard, want daar loopt de led-stroom niet. De kabelboom brengt 5V/GND/DATA rechtstreeks naar
+      led #0. Breadboard-jumpers gaan recht over de bordrand (liepen deels dóór het bord). Eindbouw: 330Ω +
+      1000µF bij led #0 (`BEDRADING.md` §2).
+- [x] **Exacte draad-audit** (`tools/bench-audit.mjs`, in de smoke test): geen draad (mét dikte) door een
+      onderdeel, het breadboard, de mat, het werkbankblad of de rig-staven; elke ESP32-/74AHCT125-pin in de
+      juiste breadboard-strook. Breadboard-indeling met kolomnummers in `BEDRADING.md` §2.
 - [ ] Wokwi-project bijwerken: nieuwe `tesseract_engine.h` + `firmware/wokwi_esp32/sketch.ino` opnieuw uploaden
 - [ ] Beslissen over slangvolgorde van de leds binnen een kubus (vóór het solderen) — zie `ANALYSE.md` §4
 - [ ] Wokwi logica-testbank (`firmware/wokwi/sketch.ino`) draaien + bedrading op breadboard verifiëren

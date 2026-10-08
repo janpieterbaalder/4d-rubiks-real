@@ -291,16 +291,6 @@ export const capTopTexture = () => memo('captop', () => labelCanvas(128, 128, '#
   g.moveTo(64, 18); g.lineTo(64, 110); g.moveTo(64, 64); g.lineTo(26, 30); g.moveTo(64, 64); g.lineTo(102, 30);
   g.stroke();
 }));
-export const perfboardTexture = () => memo('perfboard', () => {
-  const W = 256, [c, g] = makeCanvas(W, W);
-  g.fillStyle = '#2d5e36'; g.fillRect(0, 0, W, W);
-  for (let j = 0; j < 8; j++) for (let i = 0; i < 8; i++) {
-    const x = 16 + i * 32, y = 16 + j * 32;
-    g.fillStyle = '#c98a3e'; g.beginPath(); g.arc(x, y, 10, 0, Math.PI * 2); g.fill();
-    g.fillStyle = '#1d2a20'; g.beginPath(); g.arc(x, y, 3.5, 0, Math.PI * 2); g.fill();
-  }
-  return toTexture(c, { repeat: [2, 1.4] });
-});
 // gamepad face-button symbol (PlayStation-style colours)
 export const symbolTexture = (sym) => memo('sym:' + sym, () => labelCanvas(128, 128, '#1b1d22', (g) => {
   const col = { tri: '#3fe0b2', cir: '#ff5b5b', crs: '#7aa9ff', sqr: '#ff8ad6' }[sym];

@@ -3,11 +3,11 @@
    ----------------------------------------------------------------------------
    TWO functions cooperate in the same 3D world, so this is a true simulation of
    the installation:
-     1. HARDWARE — the real electronics at (estimated) real size on a workbench: an
-        ESP32-DevKitC (built-in Bluetooth) on a breadboard with a 74AHCT125 level shifter,
-        a 5V/10A supply with a GND star point, an on/off switch box, an inline 10A fuse
-        with a 5V splice block, a wireless game controller, and the 189-WS2812B led rig
-        with its input board (1000µF + 330Ω right at led #0).
+     1. HARDWARE — the real electronics at (estimated) real size on a workbench, set up as a
+        prototype: an ESP32-DevKitC (built-in Bluetooth) on a breadboard with a 74AHCT125 level
+        shifter and the 330Ω data resistor, a 5V/10A supply, an on/off switch box, an inline 10A
+        fuse, the 5V / GND distribution blocks (GND star point) with the 1000µF across them, a
+        wireless game controller, and the 189-WS2812B led rig (the harness runs to led #0).
         Click any part for an info panel + exact wiring (one CONNECTIONS table is
         the single source of truth and matches BEDRADING.md); the camera flies to it.
      2. SOFTWARE — the actual 4D-Rubiks game runs on those same leds. Drive it with the
@@ -17,16 +17,16 @@
 
    Rendering (bench/stage.js): physically based materials, a studio reflection map,
    soft shadows, HDR bloom on the leds, coloured light spill from the cells onto the
-   frame and the bench, AgX tone mapping. Scale: 1 unit = 4 cm.
+   frame and the bench, neutral tone mapping. Scale: 1 unit = 4 cm.
    Nothing moves mechanically — a "turn" only changes led COLOURS.
    ========================================================================== */
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { Tesseract, AXN, ORIENT } from './engine.js?v=4';
 // NOTE: bump ?v= on ALL bench imports together (also inside bench/*.js), else a module loads twice
-import { createStage, MAT } from './bench/stage.js?v=11';
-import * as P from './bench/parts.js?v=11';
-import { hotspotTexture, DEVKIT } from './bench/textures.js?v=11';
+import { createStage, MAT, BENCH } from './bench/stage.js?v=12';
+import * as P from './bench/parts.js?v=12';
+import { hotspotTexture, DEVKIT } from './bench/textures.js?v=12';
 
 // ---- wire categories: 3D insulation colour, legend colour, label, wire radius (scene units)
 const WIRE = {
@@ -40,40 +40,43 @@ const hex6 = c => '#' + c.toString(16).padStart(6, '0');
 
 /* ============================================================================
    THE WIRING TABLE — single source of truth.
-   Each row: [ fromPart, fromTerminal, toPart, toTerminal, category, note ]
+   Each row: [ fromPart, fromTerminal, toPart, toTerminal, category, note, 'bb'? ]
+   'bb' = both ends in the same breadboard strip: a real connection, but no wire to draw.
    ========================================================================== */
 const CONNECTIONS = [
-  // --- power backbone: PSU -> switch -> fuse -> 5V splice -> (ESP32 + led rig) ---
-  ['psu','+5V', 'sw','in',     'pwr', 'voeding naar aan/uit-schakelaar'],
-  ['sw','out',  'fuse','in',   'pwr', 'schakelaar naar de inline zekering'],
-  ['fuse','out','esp','5Vin',  'pwr', '5V naar de ESP32 (via de 5V/VIN-pin)'],
-  ['fuse','out','rig','5V',    'pwr', '5V naar de leds — dikke draad!'],
-  ['psu','GND', 'esp','GNDin', 'gnd', 'gemeenschappelijke massa'],
-  ['psu','GND', 'rig','GND',   'gnd', 'massa naar de leds — dikke draad!'],
+  // --- power backbone: PSU +V -> switch -> fuse -> 5V block; PSU −V -> GND block (the star point) ---
+  ['psu','+5V', 'sw','in',      'pwr', 'voeding naar aan/uit-schakelaar'],
+  ['sw','out',  'fuse','in',    'pwr', 'schakelaar naar de inline zekering'],
+  ['fuse','out','dist','5Vin',  'pwr', 'gezekerde 5V naar het 5V-verdeelblok'],
+  ['psu','GND', 'dist','GNDin', 'gnd', 'één dikke massadraad naar het GND-verdeelblok (sterpunt)'],
+  ['dist','5V', 'esp','5Vin',   'pwr', '5V naar de ESP32 (via de 5V/VIN-pin)'],
+  ['dist','GND','esp','GNDin',  'gnd', 'gemeenschappelijke massa'],
+  ['dist','5V', 'rig','5V',     'pwr', '5V naar led #0 — dikke draad!'],
+  ['dist','GND','rig','GND',    'gnd', 'massa naar led #0 — dikke draad!'],
 
   // --- data line: ESP32 GPIO13 (3,3V) -> levelshifter -> 330Ω -> first led (5V) ---
   ['esp','D13', 'lvl','in',  'data',  '3,3V data van de ESP32 (GPIO13) — jumper op het breadboard'],
-  ['lvl','out', 'res','in',  'data5', '5V data uit de levelshifter, langs het statief omhoog'],
-  ['res','out', 'rig','DIN', 'data5', '330Ω vlak vóór de eerste led (op het ingangsprintje)'],
+  ['lvl','out', 'res','in',  'data5', 'geen draad: de weerstand steekt in dezelfde breadboard-kolom als pin 3', 'bb'],
+  ['res','out', 'rig','DIN', 'data5', '5V data via de kabelboom naar led #0'],
 
   // --- level shifter power (shared GND is essential) ---
-  ['fuse','out','lvl','VCC', 'pwr', 'levelshifter op 5V (zet 1OE aan GND — zie info)'],
-  ['psu','GND', 'lvl','GND', 'gnd', 'gedeelde massa — anders is de 5V-uitgang ongeldig'],
-
-  // --- decoupling capacitor across the led rail near DIN ---
-  ['cap','+',   'rig','5V',  'pwr', '1000µF buffer (+ op 5V)'],
-  ['cap','-',   'rig','GND', 'gnd', '1000µF buffer (− op GND)'],
+  ['dist','5V', 'lvl','VCC', 'pwr', 'levelshifter op 5V (zet 1OE aan GND — zie info)'],
+  ['dist','GND','lvl','GND', 'gnd', 'gedeelde massa — anders is de 5V-uitgang ongeldig'],
 
   // --- Bluetooth: the controller talks straight to the ESP32's built-in radio ---
   ['esp','BT',  'ps3','BT',  'bt', 'Bluetooth (HID) — ingebouwd in de ESP32 (Bluepad32), geen dongle'],
 
   // --- power injection every 54 leds (BEDRADING.md §4): strip #54 (L), #108 (D), #162 (B) ---
-  ['fuse','out','rig','INJ_L','pwr','power-injectie linker arm (strip #54)'],
-  ['psu','GND', 'rig','INJ_L','gnd',''],
-  ['fuse','out','rig','INJ_D','pwr','power-injectie onderste arm (strip #108)'],
-  ['psu','GND', 'rig','INJ_D','gnd',''],
-  ['fuse','out','rig','INJ_B','pwr','power-injectie achterste arm (strip #162)'],
-  ['psu','GND', 'rig','INJ_B','gnd',''],
+  ['dist','5V', 'rig','INJ_L','pwr','power-injectie linker arm (strip #54)'],
+  ['dist','GND','rig','INJ_L','gnd',''],
+  ['dist','5V', 'rig','INJ_D','pwr','power-injectie onderste arm (strip #108)'],
+  ['dist','GND','rig','INJ_D','gnd',''],
+  ['dist','5V', 'rig','INJ_B','pwr','power-injectie achterste arm (strip #162)'],
+  ['dist','GND','rig','INJ_B','gnd',''],
+
+  // --- 1000µF buffer across the distribution blocks, where the led current leaves (prototype) ---
+  ['dist','5V', 'cap','+',   'pwr', '+ poot in het 5V-blok'],
+  ['dist','GND','cap','-',   'gnd', '− poot (streep) in het GND-blok'],
 ];
 
 /* ============================================================================
@@ -92,8 +95,9 @@ const INFO = {
       de <b>RMT-hardware</b> aangestuurd, zodat het verversen van de leds de Bluetooth niet blokkeert.</p>
       <p><b>Let op:</b> de ESP32 werkt op <b>3,3V-logica</b>. De WS2812 willen een 5V-datasignaal, dus
       zit er een <b>levelshifter</b> tussen de datapin (<b>GPIO13</b>) en de eerste led.</p>
-      <p><b>Op het breadboard:</b> de 5V-, GND- en GPIO13-pin zitten op dezelfde (achterste) pinrij;
-      de jumpers gaan in de vrije rij erachter.</p>`,
+      <p><b>Op het breadboard:</b> de 5V-, GND- en GPIO13-pin zitten op de achterste pinrij (rij i). In elke
+      kolom zijn de gaatjes f–j één strook, dus de draden steken in de vrije rij j erachter: <b>20j</b> = 5V,
+      <b>25j</b> = GND, <b>24j</b> = GPIO13 (kolomnummers zoals op het bord gedrukt).</p>`,
     notes: [['','Voed de ESP32 via zijn 5V/VIN-pin (de onboard-regelaar maakt er 3,3V van) — nooit 5V rechtstreeks op de 3V3-pin.'],
       ['','De oudere Mega + USB-Host-Shield + PS3BT-variant is vervallen — bouw met de ESP32 (zie BEDRADING.md).']],
   },
@@ -107,9 +111,9 @@ const INFO = {
       leds op vol wit, dan <b>≥15A</b> — en verhoog dan óók zekering, schakelaar en draaddikte
       (zie BEDRADING.md §4).</p>
       <p><b>Cruciaal:</b> de massa (GND) van de voeding, de ESP32 én de leds moet je
-      <b>aan elkaar knopen</b> (gemeenschappelijke GND). Alle GND-takken vertrekken uit <b>één
-      sterpunt</b> (het verdeelblok naast de −V-klem), zodat alle led-segmenten dezelfde
-      datareferentie delen.</p>`,
+      <b>aan elkaar knopen</b> (gemeenschappelijke GND). Eén dikke draad loopt van de −V-klem naar
+      het <b>GND-verdeelblok</b>; alle GND-takken vertrekken uit dat ene <b>sterpunt</b>, zodat alle
+      led-segmenten dezelfde datareferentie delen.</p>`,
     notes: [['warn','Netspanning (L/N/⏚) alleen aansluiten met de kap dicht en een geaarde kabel. Niet USB én 5V/VIN tegelijk voeden zonder nadenken: tijdens het programmeren de ESP32 via USB en de 5V-draad naar het bord los (massa\'s wél verbonden).']],
   },
   sw: {
@@ -124,11 +128,11 @@ const INFO = {
       <p>De knop <b>⏻ Aan / Uit</b> rechtsonder zet deze schakelaar om — kijk maar naar de wip.</p>`,
   },
   fuse: {
-    name: 'Inline zekering (10A)', tag: 'Smeltzekering in de +5V-lijn, met het 5V-verdeelblok erachter', color: '#ff7a4d',
+    name: 'Inline zekering (10A)', tag: 'Smeltzekering in de +5V-lijn, vóór het 5V-verdeelblok', color: '#ff7a4d',
     html: `<p><b>Wat:</b> een steekzekering van <b>10A</b> (rood) in een inline houder, in serie in de
       <b>+5V-hoofdlijn</b>, direct na de aan/uit-schakelaar — vóór het punt waar de 5V zich
       vertakt naar de ESP32, de levelshifter, de leds en de power-injectie. Die vertakking zit in
-      het <b>verdeelblok</b> (hendelklemmen) achter de zekering.</p>
+      het <b>5V-verdeelblok</b> achter de zekering (zie <i>Verdeelblokken</i>).</p>
       <p><b>Waarom:</b> bij kortsluiting kan de voeding véél stroom leveren en worden dunne
       draadjes gloeiend heet. <b>Regel:</b> de zekering beschermt de <b>dunste draad</b>
       eronder, niet de last — kies hem ≤ wat je dunste 5V-draad aankan (16 AWG bij 10A).</p>
@@ -137,22 +141,42 @@ const INFO = {
     notes: [['warn','De stroomlimiet in de firmware (FastLED) is software, géén zekering — een herprogrammering of vastgelopen sketch heft hem op. Dimensioneer op wat de voeding fysiek kán leveren.']],
   },
   res: {
-    name: '330Ω weerstand (data)', tag: 'Beschermt de eerste led — oranje-oranje-bruin-goud', color: '#ffd23d',
+    name: '330Ω weerstand (data)', tag: 'Op het breadboard, direct na de levelshifter — oranje-oranje-bruin-goud', color: '#ffd23d',
     html: `<p><b>Wat:</b> één weerstandje van 330Ω (kleurcode <b>oranje-oranje-bruin</b>, goud = ±5%) in
-      serie in de <b>datadraad</b>, op het ingangsprintje vlak bij de <b>eerste</b> led (DIN). Hij dempt
-      scherpe spanningspieken (reflecties) op de datalijn en beschermt zo de dataingang van led #0.</p>
+      serie in de <b>datadraad</b>. Hij dempt scherpe spanningspieken (reflecties) op de datalijn en
+      begrenst de stroom in de data-ingang van led #0.</p>
+      <p><b>Op het breadboard:</b> één poot steekt in dezelfde kolom als uitgang <b>1Y</b> (pin 3) van de
+      levelshifter — daar is dus geen draadje voor nodig — de andere in een vrije kolom, waar de oranje
+      datadraad naar led #0 begint.</p>
       <p>Klein onderdeel, groot effect op betrouwbaarheid. Waarden van 220–470Ω zijn prima.</p>`,
+    notes: [['','Prototype vs. eindbouw: Adafruit adviseert de weerstand aan de led-kant van de datadraad. Bij deze korte draad (≈ 0,5 m, inschatting) werkt hij ook hier; zet hem in de eindbouw bij led #0.']],
   },
   cap: {
-    name: '1000µF condensator', tag: 'Stroombuffer bij de leds (op het ingangsprintje)', color: '#ff5a4d',
+    name: '1000µF condensator', tag: 'Stroombuffer over 5V/GND — in de verdeelblokken', color: '#ff5a4d',
     html: `<p><b>Wat:</b> een grote elektrolytische condensator (1000µF, <b>10–16V</b> — niet de
-      6,3V-ondergrens) <b>parallel</b> over 5V en GND, op het ingangsprintje waar de stroom de
-      led-keten binnenkomt. Hij vangt de plotselinge stroompieken op als veel leds tegelijk
-      aanspringen, zodat de eerste leds niet "dippen".</p>
+      6,3V-ondergrens) <b>parallel</b> over 5V en GND. Hij vangt de plotselinge stroompieken op als
+      veel leds tegelijk aanspringen, zodat de spanning niet "dipt".</p>
+      <p><b>Waar:</b> met zijn poten in de verdeelblokken — + in het 5V-blok, − in het GND-blok — precies
+      waar de dikke draden naar de leds vertrekken.</p>
+      <p><b>Waarom niet op het breadboard?</b> De led-stroom (tot ~10A) loopt niet over het breadboard en
+      mag dat ook niet: gangbare breadboards zijn gespecificeerd op ca. 1A per contact. Op de
+      breadboard-rail zou de elco dus op een zijtak zitten, buiten het stroompad van de leds.</p>
       <p><b>Let op de polariteit:</b> de poot aan de kant van de streep met minnetjes (−) gaat naar
       GND, de andere naar +5V. Verkeerd om kan hij klappen.</p>`,
     notes: [['warn','Elco\'s zijn gepolariseerd: − (streep) naar massa, + naar 5V.'],
+      ['','Eindbouw: zet de 1000µF bij led #0, waar de stroom de led-keten binnenkomt (BEDRADING.md §2).'],
       ['','Tip: bij lange armen ook een kleinere elco (100–470µF) bij elk power-injectiepunt.']],
+  },
+  dist: {
+    name: 'Verdeelblokken 5V/GND', tag: 'Hier vertakt de stroom — met het GND-sterpunt en de 1000µF', color: '#f0a03c',
+    html: `<p><b>Wat:</b> twee 8-voudige hendelklemmen naast elkaar: links <b>GND</b> (grijze hendels), rechts
+      <b>+5V</b> (oranje). De gezekerde 5V komt rechts binnen, de massa met één dikke draad van de −V-klem
+      van de voeding.</p>
+      <p><b>Waarom:</b> vanaf hier vertrekken álle stroomtakken — naar led #0, de drie power-injectiepunten,
+      de ESP32 en de levelshifter. Het GND-blok is het <b>sterpunt</b>: alle massa's komen op één punt
+      samen (BEDRADING.md §6).</p>
+      <p><b>De 1000µF</b> zit over de twee binnenste klemmen: + in het 5V-blok, − in het GND-blok.</p>`,
+    notes: [['','Hendelklemmen voor installatiedraad (bijv. Wago 221) kunnen 10A ruim aan; een breadboard niet — daarom lopen de stroomdraden niet over het breadboard.']],
   },
   lvl: {
     name: 'Levelshifter (3,3V→5V)', tag: '74AHCT125 (DIP-14) op het breadboard', color: '#36c7ff',
@@ -161,9 +185,10 @@ const INFO = {
       74HCT245) is ideaal: hij accepteert 3,3V aan de ingang en geeft 5V uit.</p>
       <p><b>Aansluiting:</b> voed hem met <b>5V</b> (pin 14) en deel zijn <b>GND</b> (pin 7) met de
       ESP32 — anders is zijn 5V-uitgang ongeldig. Eén kanaal volstaat: <b>ingang 1A</b> (pin 2) =
-      GPIO13, <b>uitgang 1Y</b> (pin 3) → de 330Ω → de eerste led. De <b>1OE</b> (pin 1, actief-laag)
+      GPIO13, <b>uitgang 1Y</b> (pin 3) → de 330Ω (steekt in dezelfde kolom) → de eerste led. De <b>1OE</b> (pin 1, actief-laag)
       gaat met het korte zwarte jumpertje naar <b>GND</b> (pin 7) — dan is de uitgang actief.</p>`,
-    notes: [['','Op een 5V-microcontroller (Arduino Mega) is dit niet nodig; die stuurt de leds rechtstreeks aan.']],
+    notes: [['','Ongebruikte ingangen niet laten zweven (datasheet): 2OE/3OE/4OE aan 5V (die kanalen uit) en 2A/3A/4A aan GND.'],
+      ['','Op een 5V-microcontroller (Arduino Mega) is dit niet nodig; die stuurt de leds rechtstreeks aan.']],
   },
   ps3: {
     name: 'Draadloze controller', tag: 'PS4/PS5/Xbox/8BitDo/Switch Pro (of DS3)', color: '#c77bff',
@@ -184,9 +209,10 @@ const INFO = {
       <p><b>Slim eraan:</b> ze hangen in <b>één lange ketting</b> aan <u>één</u> datadraad. Elke
       led heeft een chip die "de eerste kleur voor mij houdt en de rest doorgeeft". Daarom is er
       maar <b>1 datapin</b> (GPIO13, via de levelshifter) nodig voor alle 189.</p>
-      <p><b>Ingang:</b> de kabelboom loopt over de voet, langs de paal en <b>dóór</b> de onderste kubus
-      (via de geboorde middenkolom, net als de paal) omhoog naar het <b>ingangsprintje</b> onder de
-      middelste kubus: schroefklemmen 5V/GND/DATA, de 1000µF-elco en de 330Ω-weerstand — vlak bij led #0.</p>
+      <p><b>Ingang:</b> de kabelboom loopt over de voet, langs de paal, <b>dóór</b> de onderste kubus (via
+      de geboorde middenkolom, net als de paal) en langs de staaf de middelste kubus in: 5V, GND en DATA
+      komen rechtstreeks aan op <b>led #0</b>. De 330Ω en de 1000µF staan in deze prototype-opstelling op
+      de werkbank (breadboard en verdeelblokken).</p>
       <p><b>Speel hier ook echt:</b> klik op een kubusje om een cel te kiezen, of gebruik de
       controller. Bij een draai verschuiven alléén de <b>kleuren</b> en loopt er een heldere golf in de
       draairichting — precies wat de WS2812 doet.</p>
@@ -199,8 +225,8 @@ const INFO = {
 };
 
 const MENU = [
-  ['Besturing', ['esp','lvl']],
-  ['Voeding', ['psu','sw','fuse','cap','res']],
+  ['Besturing', ['esp','lvl','res']],
+  ['Voeding', ['psu','sw','fuse','dist','cap']],
   ['Invoer', ['ps3']],
   ['Uitvoer', ['rig']],
 ];
@@ -262,7 +288,9 @@ const up = new THREE.Vector3(0, 1, 0);
 const BBPOS = new THREE.Vector3(2.8, MAT_TOP, 3.0);
 const bb = P.buildBreadboard();
 bb.group.position.copy(BBPOS); scene.add(bb.group);
-const hole = (col, row) => ({ p: bb.hole(col, row), d: up.clone(), hole: true });
+// a breadboard hole as a wire terminal; `exit` = the board edge its jumper leaves over (x−/x+/z−/z+),
+// `run` = how far beyond that edge it lands on the bench
+const hole = (col, row, exit = null, run = 0.4) => ({ p: bb.hole(col, row), d: up.clone(), hole: true, exit, run });
 
 (function placeESP32() {
   const e = P.buildESP32();
@@ -271,8 +299,8 @@ const hole = (col, row) => ({ p: bb.hole(col, row), d: up.clone(), hole: true })
   e.group.position.set(BBPOS.x + pin1.x - P.mm(DEVKIT.pinX(0)), BBPOS.y + bb.top, BBPOS.z + pin1.z + P.mm(DEVKIT.ROWSEP / 2));
   scene.add(e.group);
   registerPart('esp', e.group);
-  setTerm('esp', '5Vin', bb.group, hole(19, 'j'));    // J2 pin 19 = 5V
-  setTerm('esp', 'GNDin', bb.group, hole(24, 'j'));   // J2 pin 14 = GND
+  setTerm('esp', '5Vin', bb.group, hole(19, 'j', 'x-'));        // J2 pin 19 = 5V
+  setTerm('esp', 'GNDin', bb.group, hole(24, 'j', 'z-', 0.2));  // J2 pin 14 = GND
   setTerm('esp', 'D13', bb.group, hole(23, 'j'));     // J2 pin 15 = GPIO13
   setTerm('esp', 'BT', e.group, { p: e.antenna, d: up.clone() });
   e.group.traverse(o => { if (o.userData.role === 'powerLed') hw.espLed = o; });
@@ -285,9 +313,20 @@ const hole = (col, row) => ({ p: bb.hole(col, row), d: up.clone(), hole: true })
   scene.add(c.group);
   registerPart('lvl', c.group);
   setTerm('lvl', 'in', bb.group, hole(48, 'h'));      // pin 2 = 1A
-  setTerm('lvl', 'out', bb.group, hole(47, 'j'));     // pin 3 = 1Y
-  setTerm('lvl', 'GND', bb.group, hole(43, 'j'));     // pin 7 = GND
-  setTerm('lvl', 'VCC', bb.group, hole(49, 'c'));     // pin 14 = VCC
+  setTerm('lvl', 'out', bb.group, hole(47, 'j'));     // pin 3 = 1Y (the 330Ω leg sits in this strip)
+  setTerm('lvl', 'GND', bb.group, hole(43, 'j', 'z-', 0.34));  // pin 7 = GND
+  setTerm('lvl', 'VCC', bb.group, hole(49, 'c', 'z+'));  // pin 14 = VCC
+})();
+
+// the 330Ω in the back row behind the level shifter: one leg in the 1Y strip (col 47), the other in
+// the free col 51, where the data wire to led #0 plugs in (Arduino-style: no jumper for 1Y -> 330Ω)
+(function placeResistor() {
+  const r = P.buildResistor();
+  r.group.position.copy(bb.hole(49, 'j')).add(BBPOS);
+  scene.add(r.group);
+  registerPart('res', r.group);
+  setTerm('res', 'in', bb.group, hole(47, 'j'));
+  setTerm('res', 'out', bb.group, hole(51, 'h', 'z-', 0.55));   // lands behind the GND wires
 })();
 
 (function placePSU() {
@@ -296,13 +335,13 @@ const hole = (col, row) => ({ p: bb.hole(col, row), d: up.clone(), hole: true })
   scene.add(p.group);
   registerPart('psu', p.group);
   setTerm('psu', '+5V', p.group, p.screws.VP1);
-  setTerm('psu', 'GND', p.group, p.starOut);          // the GND star point: 6 wire entries
+  setTerm('psu', 'GND', p.group, p.screws.VM1);
   hw.psu = p;
 })();
 
 (function placeSwitch() {
   const s = P.buildSwitchBox();
-  s.group.position.set(-4.5, MAT_TOP, 5.6);
+  s.group.position.set(-4.8, MAT_TOP, 5.6);
   scene.add(s.group);
   registerPart('sw', s.group);
   setTerm('sw', 'in', s.group, s.in);
@@ -316,8 +355,36 @@ const hole = (col, row) => ({ p: bb.hole(col, row), d: up.clone(), hole: true })
   scene.add(f.group);
   registerPart('fuse', f.group);
   setTerm('fuse', 'in', f.group, f.in);
-  setTerm('fuse', 'out', f.group, f.out);             // the 5V splice block: 6 wire entries
-  hw.fuse = f;
+  setTerm('fuse', 'out', f.group, f.out);
+})();
+
+// the 5V / GND distribution: two lever blocks behind the fuse, GND (the star point) left, 5V right.
+// Each wire gets a fixed entry (FAN) so the bundle leaves untangled; the wires first run 0.95 straight
+// back, the fused 5V comes round the right end into the last 5V entry.
+const DIST_POS = new THREE.Vector3(-1.735, MAT_TOP, 5.45);
+(function placeDistribution() {
+  const d = P.buildDistribution();
+  d.group.position.copy(DIST_POS);
+  scene.add(d.group);
+  registerPart('dist', d.group);
+  const run = (e, len = 0.95) => ({ ...e, run: len });
+  setTerm('dist', 'GNDin', d.group, run(d.gnd[0]));
+  setTerm('dist', 'GND', d.group, d.gnd.map(e => run(e)));
+  setTerm('dist', '5Vin', d.group, run(d.v5[7], 0.25));
+  setTerm('dist', '5V', d.group, d.v5.map(e => run(e)));
+})();
+
+// the 1000µF lies on the mat behind the blocks, its legs clamped in the two inner entries
+// (+ in 5V, − with the stripe in GND) — on the led current path, not on the breadboard
+(function placeCapacitor() {
+  const c = P.buildCapacitor();
+  c.group.rotation.x = -Math.PI / 2;                  // axis towards the back, legs (bottom) towards the blocks
+  c.group.position.set(DIST_POS.x, MAT_TOP + P.mm(5), TERM.dist.GND[7].p.z - 0.16);
+  scene.add(c.group);
+  registerPart('cap', c.group);
+  const leg = v => ({ p: v.clone().setY(-P.mm(0.5)), d: new THREE.Vector3(0, -1, 0), leg: true });
+  setTerm('cap', '+', c.group, leg(c.plus));
+  setTerm('cap', '-', c.group, leg(c.minus));
 })();
 
 (function placeGamepad() {
@@ -476,54 +543,17 @@ const P_LOCAL = (x, y, z) => new THREE.Vector3(x, y, z).add(RIG.OFFSET);   // ri
     new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 4 }));
   chainPulse.userData.shell = true; chainPulse.raycast = () => {}; chainGroup.add(chainPulse);
 
-  // ---- the input board (5V / GND / DATA screw terminal, 1000µF, 330Ω) clamped on the rod
-  //      between cube D and cube C, right below led #0.
-  const ib = P.buildInputBoard();
-  ib.group.position.set(0, -HALF - 0.83, 0.545);
-  ib.group.traverse(o => { if (o.isMesh) { o.userData.shell = true; } });
-  g.add(ib.group);
   scene.add(g);
   registerPart('rig', g, P_LOCAL(0, RIG.D + HALF + 0.45, 0));
 
-  // the 1000µF and the 330Ω are their own clickable parts, mounted ON the input board
-  const cap = P.buildCapacitor();
-  cap.group.position.copy(ib.pad(-4, -1)); ib.group.add(cap.group);
-  scene.updateMatrixWorld(true);
-  registerPart('cap', cap.group, cap.group.localToWorld(new THREE.Vector3(-0.9, 0.1, 0.25)));
-  const res = P.buildResistor();
-  res.group.position.copy(ib.pad(4, -1)); ib.group.add(res.group);
-  scene.updateMatrixWorld(true);
-  registerPart('res', res.group, res.group.localToWorld(new THREE.Vector3(0.95, -0.25, 0.3)));
-
-  // terminals: the harness lands in the screw terminal (front entries); the on-board links
-  // (cap, resistor) use the solder pads behind it.
-  const [e5, eG, eD] = ib.entries;
-  const padOf = (e) => ({ p: new THREE.Vector3(e.p.x, ib.size.y, e.p.z - P.mm(10)), d: up.clone() });
-  setTerm('rig', '5V', ib.group, e5);
-  setTerm('rig', 'GND', ib.group, eG);
-  TERM.rig['5V'].padP = toWorld(ib.group, padOf(e5)); TERM.rig.GND.padP = toWorld(ib.group, padOf(eG));
-  setTerm('res', 'in', ib.group, eD);                             // DATA screw (trace to the resistor)
-  setTerm('res', 'out', ib.group, { p: ib.pad(6, -1), d: up.clone() });
-  setTerm('rig', 'DIN', ib.group, { p: ib.pad(6, 1), d: up.clone() });
-  setTerm('cap', '+', ib.group, { p: ib.pad(-4, -1).add(cap.plus).setY(ib.size.y), d: up.clone() });
-  setTerm('cap', '-', ib.group, { p: ib.pad(-4, -1).add(cap.minus).setY(ib.size.y), d: up.clone() });
-
-  // the short 3-core lead from the board INTO cube C (through the bore of its bottom face-centre
-  // cubie) and along the gap between the bottom and middle layer to led #0 (DIN / 5V / GND)
-  const led0 = meshes.C[0].position;                              // (-1,-1,-1) corner of cube C
-  const GAP = RIG.S / 2;                                          // a layer gap lies half a pitch off-centre
-  const entry = new THREE.Vector3(led0.x, led0.y + RIG.CUB / 2 + 0.005, led0.z);   // top face of led #0
-  const pads = [TERM.rig.DIN.p, TERM.rig['5V'].padP.p, TERM.rig.GND.padP.p].map(v => g.worldToLocal(v.clone()));
-  [WIRE.data5.color, WIRE.pwr.color, WIRE.gnd.color].forEach((col, n) => {
-    const s = pads[n], off = (n - 1) * 0.03;
-    const curve = new THREE.CatmullRomCurve3([s, s.clone().add(new THREE.Vector3(0, 0.12, 0)),
-      new THREE.Vector3(-0.12 + off, -HALF - 0.18, 0.12), new THREE.Vector3(-0.12 + off, -0.6, 0.12),
-      new THREE.Vector3(-0.2 + off, -GAP, 0.02), new THREE.Vector3(-0.48 + off, -GAP, -0.45),
-      new THREE.Vector3(led0.x + off, -GAP - 0.02, led0.z), entry.clone().add(new THREE.Vector3(off, 0, 0))], false, 'centripetal');
-    const lead = new THREE.Mesh(new THREE.TubeGeometry(curve, 40, 0.014, 6, false),
-      new THREE.MeshStandardMaterial({ color: col, roughness: 0.45 }));
-    lead.userData.shell = true; lead.castShadow = true; g.add(lead);
-  });
+  // the input: the harness comes up the D-C rod into cube C (through the bore of its bottom
+  // face-centre cubie) and runs in the gap between its bottom and middle layer to led #0, the
+  // (-1,-1,-1) corner: DIN, 5V and GND land side by side on the top face of that cubie.
+  const led0 = meshes.C[0].position;
+  const top0 = (dx) => ({ p: new THREE.Vector3(led0.x + dx, led0.y + RIG.CUB / 2 + 0.005, led0.z), d: UPaxis.clone(), lead: 0.05 });
+  setTerm('rig', 'DIN', g, top0(-0.03));
+  setTerm('rig', '5V', g, top0(0));
+  setTerm('rig', 'GND', g, top0(0.03));
 
   // power-injection contacts INSIDE the first led of each injected arm (strip #54 L, #108 D,
   // #162 B): that led sits in the arm's inner layer; the wires come in through the bore along
@@ -541,32 +571,65 @@ const P_LOCAL = (x, y, z) => new THREE.Vector3(x, y, z).add(RIG.OFFSET);   // ri
 
 /* --------------------------------------------------------- the wires --- */
 // Bench wires lie on the bench; the harness (all wires to the rig) is bundled, runs over the
-// foot, climbs the pole and cube D and ends on the input board; the injection pairs branch
+// foot, climbs the pole, cube D and the D-C rod and ends on led #0; the injection pairs branch
 // off along the rods to their arm. Every wire is a smooth tube through hand-placed waypoints.
 const wires = [];
 const benchY = (x, z) => (x > MAT.X - MAT.W / 2 && x < MAT.X + MAT.W / 2 && z > MAT.Z - MAT.D / 2 && z < MAT.Z + MAT.D / 2) ? MAT_TOP : 0;
-const onBench = (v, r) => new THREE.Vector3(v.x, benchY(v.x, v.z) + r, v.z);
+const onBench = (v, r, lift = 0) => new THREE.Vector3(v.x, benchY(v.x, v.z) + r + lift, v.z);
 const W3 = (x, y, z) => new THREE.Vector3(x, y, z);
+const flatDir = (from, to) => new THREE.Vector3().subVectors(to, from).setY(0).normalize();
+const BB_BOX = new THREE.Box3().setFromObject(bb.group);    // jumpers leave the breadboard over its edge
+// the lowest the centre of a wire of radius r may be at (x, z): on the ESD mat, rolling over its edge
+// the way a real cable does, on the bench top around it — and free beyond the bench (hanging down)
+function floorAt(x, z, r) {
+  if (Math.abs(x) > BENCH.W / 2 || Math.abs(z - BENCH.Z0) > BENCH.D / 2) return -Infinity;
+  const dx = Math.max(MAT.X - MAT.W / 2 - x, 0, x - (MAT.X + MAT.W / 2));
+  const dz = Math.max(MAT.Z - MAT.D / 2 - z, 0, z - (MAT.Z + MAT.D / 2));
+  const d = Math.hypot(dx, dz);                                   // horizontal distance to the mat (0 = on it)
+  return d < r ? MAT_TOP + Math.sqrt(r * r - d * d) : r;
+}
+// a smooth spline through the waypoints overshoots before a steep rise (e.g. up to a breadboard edge)
+// and would dive into the mat; this wrapper keeps every point of the wire on top of the bench
+class OnBench extends THREE.Curve {
+  constructor(curve, r) { super(); this.curve = curve; this.r = r; }
+  getPoint(t, out = new THREE.Vector3()) {
+    this.curve.getPoint(t, out);
+    const floor = floorAt(out.x, out.z, this.r);
+    if (out.y < floor) out.y = floor;
+    return out;
+  }
+}
 
-// harness spine (world): bench -> over the foot -> up beside the pole -> THROUGH the bored centre
-// column of cube D (like the pole) -> along the D-C rod -> input board
+// harness spine (world, bundle centre): along the mat -> over its back edge (clear of it) -> down to the
+// bench -> over the foot -> up beside the pole -> THROUGH the bored centre column of cube D (like the
+// pole) -> up in front of the D-C rod towards cube C
+const HB = 0.135;                                   // bundle centre height above the surface it lies on
 const SPINE = [
-  W3(0.35, 0, 1.15), W3(0.28, 0, -1.25), W3(0.24, 0.5, -2.05), W3(0.2, 0.98, -3.2), W3(0.166, 1.12, -4.0),
-  W3(0.166, 1.95, -4.034), W3(0.166, 3.41, -4.034), W3(0.166, 4.15, -4.034), W3(0.22, 4.5, -3.99), W3(0.58, 5.18, -3.85),
+  W3(0.35, MAT_TOP + HB, 1.15), W3(0.31, MAT_TOP + HB, -0.88), W3(0.28, HB, -1.3), W3(0.24, 0.5, -2.05),
+  W3(0.2, 0.98, -3.2), W3(0.166, 1.12, -4.0), W3(0.166, 1.95, -4.034), W3(0.166, 3.41, -4.034),
+  W3(0.166, 4.15, -4.034), W3(0.22, 4.5, -3.99), W3(0.0, 6.0, -4.03),
 ];
-const SPINE_EXIT = { D: 6, LB: 8, MAIN: 9 };        // index of the spine point where a branch leaves
+const SPINE_EXIT = { D: 7, LB: 9, MAIN: 10 };       // index of the spine point where a branch leaves
 const BUNDLE = 0.07;                                // slot spacing in the bundle
 // the order in which harness wires take their slot in the bundle (n, b in the spine frame)
 const HARNESS_SLOT = {
-  'lvl.out>res.in': [0, 0],
-  'fuse.out>rig.5V': [-1, -1], 'psu.GND>rig.GND': [-1, 1],
-  'fuse.out>rig.INJ_D': [0, -1], 'psu.GND>rig.INJ_D': [0, 1],
-  'fuse.out>rig.INJ_L': [1, -1], 'psu.GND>rig.INJ_L': [-1, 0],
-  'fuse.out>rig.INJ_B': [1, 1], 'psu.GND>rig.INJ_B': [1, 0],
+  'res.out>rig.DIN': [0, 0],
+  'dist.5V>rig.5V': [-1, -1], 'dist.GND>rig.GND': [-1, 1],
+  'dist.5V>rig.INJ_D': [0, -1], 'dist.GND>rig.INJ_D': [0, 1],
+  'dist.5V>rig.INJ_L': [1, -1], 'dist.GND>rig.INJ_L': [-1, 0],
+  'dist.5V>rig.INJ_B': [1, 1], 'dist.GND>rig.INJ_B': [1, 0],
+};
+// the entry of the distribution blocks each wire uses (0..7, left to right). Left: the breadboard
+// GND wires (straight back, then along the breadboard), middle: the harness pairs, right: the
+// breadboard 5V wires; the 1000µF bridges the two inner entries (GND 7, 5V 0).
+const FAN = {
+  'dist.GND>lvl.GND': 1, 'dist.GND>esp.GNDin': 2, 'dist.GND>rig.INJ_B': 3, 'dist.GND>rig.INJ_L': 4,
+  'dist.GND>rig.INJ_D': 5, 'dist.GND>rig.GND': 6, 'dist.GND>cap.-': 7,
+  'dist.5V>cap.+': 0, 'dist.5V>rig.5V': 1, 'dist.5V>rig.INJ_D': 2, 'dist.5V>rig.INJ_L': 3,
+  'dist.5V>rig.INJ_B': 4, 'dist.5V>esp.5Vin': 5, 'dist.5V>lvl.VCC': 6,
 };
 function spineFor(lastIdx) {
-  const pts = SPINE.slice(0, lastIdx + 1).map((v, i) => (i < 2 ? onBench(v, 0.135) : v.clone()));
-  return new THREE.CatmullRomCurve3(pts, false, 'centripetal');
+  return new THREE.CatmullRomCurve3(SPINE.slice(0, lastIdx + 1).map(v => v.clone()), false, 'centripetal');
 }
 function offsetCurvePoints(curve, n, b, segs) {
   const fr = curve.computeFrenetFrames(segs, false), out = [];
@@ -582,41 +645,48 @@ function branchFor(key, pair) {
   if (key.endsWith('INJ_D')) return { off: W3(o, 0, 0), pts: [W3(-0.12 + o, 3.41, -3.98), W3(-0.45 + o, 3.41, -4.55), W3(-0.56 + o, 3.41, -4.74)] };
   // L / B: up behind the D-C rod, into cube C through its bottom bore, up to the height of the
   // arm rods, out through the bore of the face-centre cubie, along the rod and into the arm
-  if (key.endsWith('INJ_L')) return { off: W3(0, 0, o), pts: [W3(-0.05, 4.75, -4.32 + o), W3(-0.09, 6.35, -4.32 + o),
-    W3(-0.09, 7.2, -4.32 + o), W3(-0.2, 7.32, -4.24 + o), W3(-0.6, 7.32, -4.2 + o), W3(-0.95, 7.32, -4.2 + o),
-    W3(-3.35, 7.32, -4.2 + o), W3(-3.7, 7.32, -4.2 + o), W3(-3.99, 7.25, -4.25 + o), W3(-3.99, 6.9, -4.7 + o)] };
+  if (key.endsWith('INJ_L')) return { off: W3(0, 0, o), pts: [W3(0.15, 4.62, -4.2 + o), W3(0.06, 4.72, -4.31 + o),
+    W3(-0.06, 4.85, -4.33 + o), W3(-0.09, 6.35, -4.33 + o), W3(-0.09, 7.12, -4.33 + o), W3(-0.14, 7.26, -4.29 + o),
+    W3(-0.3, 7.3, -4.22 + o), W3(-0.6, 7.3, -4.2 + o), W3(-0.95, 7.3, -4.2 + o), W3(-3.35, 7.3, -4.2 + o),
+    W3(-3.7, 7.3, -4.2 + o), W3(-3.99, 7.25, -4.25 + o), W3(-3.99, 6.9, -4.7 + o)] };
   if (key.endsWith('INJ_B')) return { off: W3(o, 0, 0), pts: [W3(0.15 + o, 4.75, -4.33), W3(0.09 + o, 6.35, -4.32),
-    W3(0.09 + o, 7.2, -4.32), W3(0.07 + o, 7.32, -4.45), W3(0.06 + o, 7.32, -4.8), W3(0.06 + o, 7.32, -5.12),
-    W3(0.06 + o, 7.32, -7.55), W3(0.06 + o, 7.32, -7.85), W3(0.0 + o, 7.25, -8.19), W3(-0.45 + o, 6.9, -8.19)] };
-  return { off: W3(0, 0, 0), pts: [W3(0.52, 5.55, -3.12)] };    // main: in front of the board
+    W3(0.09 + o, 7.12, -4.32), W3(0.08 + o, 7.26, -4.38), W3(0.07 + o, 7.3, -4.5), W3(0.07 + o, 7.3, -4.8),
+    W3(0.07 + o, 7.3, -5.12), W3(0.07 + o, 7.3, -7.55), W3(0.07 + o, 7.3, -7.85), W3(0.0 + o, 7.25, -8.19),
+    W3(-0.45 + o, 6.9, -8.19)] };
+  // main (DIN / 5V / GND): into cube C through its bottom bore, then in the gap between its bottom and
+  // middle layer to the top face of led #0
+  const s = key.endsWith('DIN') ? -0.03 : key.endsWith('rig.GND') ? 0.03 : 0;
+  return { off: W3(0, 0, 0), pts: [W3(-0.12 + s, 6.35, -4.08), W3(-0.12 + s, 6.8, -4.08), W3(-0.2 + s, 7.09, -4.18), W3(-0.48 + s, 7.09, -4.65)] };
 }
 // a seeded "hand laid" sideways offset so parallel bench wires do not look ruler-straight
 const wobble = (seed) => { const s = Math.sin(seed * 12.9898) * 43758.5453; return (s - Math.floor(s)) - 0.5; };
 
-// the generic bench router: out of terminal A, down onto the bench, across, up into terminal B
+// out of a terminal and down onto the bench, towards `outward`. A dupont jumper in a breadboard hole
+// leaves its housing straight up, crosses its board edge square (t.exit, else the one `outward` points
+// to most) and lands t.run beyond it; any other terminal leaves along its own direction for `run`
+// (default 0.45) before the wire turns.
+const EDGE = { 'x-': W3(-1, 0, 0), 'x+': W3(1, 0, 0), 'z-': W3(0, 0, -1), 'z+': W3(0, 0, 1) };
+const DUPONT = { H: 0.32, W: P.mm(2.5), CRIMP: 0.12 };   // housing height / width, wire end above the hole
+const housed = (t, dy) => t.p.clone().addScaledVector(up, dy);
 function terminalRun(t, r, outward) {
-  const pts = [t.p.clone()];
-  if (t.hole) {                                                  // a dupont jumper plugged in a breadboard hole
-    const side = outward.clone().setY(0).normalize();
-    pts.push(t.p.clone().addScaledVector(up, 0.36));
-    pts.push(t.p.clone().addScaledVector(up, 0.4).addScaledVector(side, 0.25));
-    pts.push(onBench(t.p.clone().addScaledVector(side, 0.75), r));
-  } else {
-    const d = t.d.clone();
-    pts.push(t.p.clone().addScaledVector(d, 0.14));
-    const flat = d.clone().setY(0); if (flat.lengthSq() < 0.01) flat.copy(outward).setY(0);
-    flat.normalize();
-    pts.push(onBench(t.p.clone().addScaledVector(flat, 0.45), r));
+  const side = outward.clone().setY(0).normalize();
+  if (t.hole) {
+    const ex = EDGE[t.exit] || (Math.abs(side.x) > Math.abs(side.z) ? W3(Math.sign(side.x), 0, 0) : W3(0, 0, Math.sign(side.z) || 1));
+    const k = ex.x ? (ex.x > 0 ? BB_BOX.max.x - t.p.x : t.p.x - BB_BOX.min.x) : (ex.z > 0 ? BB_BOX.max.z - t.p.z : t.p.z - BB_BOX.min.z);
+    const h = t.p.y + 0.5;
+    return [housed(t, DUPONT.CRIMP), housed(t, DUPONT.H), housed(t, DUPONT.H + 0.1),   // straight through the housing
+      t.p.clone().addScaledVector(ex, k).setY(h),                                       // over the board edge
+      t.p.clone().addScaledVector(ex, k + 0.12).setY(h - 0.16),
+      onBench(t.p.clone().addScaledVector(ex, k + t.run), r)];
   }
-  return pts;
+  const flat = t.d.clone().setY(0); if (flat.lengthSq() < 0.01) flat.copy(side);
+  return [t.p.clone(), t.p.clone().addScaledVector(t.d, 0.14), onBench(t.p.clone().addScaledVector(flat.normalize(), t.run ?? 0.45), r)];
 }
 function benchRoute(A, B, r, via, seed) {
-  const AB = new THREE.Vector3().subVectors(B.p, A.p).setY(0);
-  const a = terminalRun(A, r, AB.clone().normalize());
-  const b = terminalRun(B, r, AB.clone().negate().normalize()).reverse();
-  const mid = [];
-  if (via) via.forEach(v => mid.push(onBench(v, r)));
-  else {
+  const mid = (via || []).map(v => onBench(v, r, v.y));        // a via with y > 0 lies on top of other wires
+  const a = terminalRun(A, r, flatDir(A.p, mid[0] ?? B.p));
+  const b = terminalRun(B, r, flatDir(B.p, mid[mid.length - 1] ?? A.p)).reverse();
+  if (!via) {
     const s = a[a.length - 1], e = b[0], m = s.clone().lerp(e, 0.5);
     const side = new THREE.Vector3(-(e.z - s.z), 0, e.x - s.x).normalize();
     m.addScaledVector(side, wobble(seed) * Math.min(0.9, s.distanceTo(e) * 0.12));
@@ -624,31 +694,33 @@ function benchRoute(A, B, r, via, seed) {
   }
   return [...a, ...mid, ...b];
 }
-// a wire bridge between two nearby solder pads on the input board
-function bridgeRoute(A, B) {
-  const lift = Math.min(0.08, A.p.distanceTo(B.p) * 0.35);
-  return [A.p.clone(), A.p.clone().addScaledVector(up, lift), B.p.clone().addScaledVector(up, lift), B.p.clone()];
-}
-// a dupont jumper between two breadboard holes: a short arc over the board
+// a dupont jumper between two breadboard holes: straight out of both housings, then an arc high enough
+// to clear the wires that leave the holes in between over the back edge
 function jumperRoute(A, B) {
-  const m = A.p.clone().lerp(B.p, 0.5); m.y += 0.42;
-  return [A.p.clone(), A.p.clone().addScaledVector(up, 0.3), m, B.p.clone().addScaledVector(up, 0.3), B.p.clone()];
+  const m = A.p.clone().lerp(B.p, 0.5); m.y += 0.7;
+  return [housed(A, DUPONT.CRIMP), housed(A, DUPONT.H), housed(A, 0.56), m, housed(B, 0.56), housed(B, DUPONT.H), housed(B, DUPONT.CRIMP)];
 }
-// optional hand-placed waypoints (on the bench) for runs that would cut through a part
+// the bare, bent leg of the capacitor from a lever-block entry to the capacitor body
+function legRoute(A, B) {
+  return [A.p.clone(), A.p.clone().addScaledVector(A.d, 0.05), B.p.clone().addScaledVector(B.d, 0.035), B.p.clone()];
+}
+// hand-placed waypoints on the bench (y = lift over other wires) for runs that would cut through a part
 const VIA = {
-  'psu.+5V>sw.in': [W3(-5.75, 0, 3.6)],
-  'fuse.out>esp.5Vin': [W3(-0.6, 0, 3.9), W3(0.2, 0, 2.05)],
-  'psu.GND>esp.GNDin': [W3(-3.6, 0, 1.6), W3(0.4, 0, 1.85)],
-  'psu.GND>lvl.GND': [W3(-3.4, 0, 1.45), W3(2.0, 0, 1.75)],
-  'fuse.out>lvl.VCC': [W3(0.3, 0, 4.55), W3(3.4, 0, 4.15)],
+  'psu.+5V>sw.in': [W3(-5.95, 0, 3.6)],
+  'psu.GND>dist.GNDin': [W3(-4.5, 0, 3.45)],
+  'fuse.out>dist.5Vin': [W3(-0.9, 0, 6.02), W3(-0.16, 0, 5.86), W3(-0.06, 0, 5.42), W3(-0.2, 0, 4.97)],
+  'dist.5V>lvl.VCC': [W3(1.2, 0, 4.12)],
+  // the breadboard GND wires go straight back, over the harness and along the back of the breadboard
+  'dist.GND>lvl.GND': [W3(-2.82, 0, 1.98), W3(-0.8, 0, 1.98), W3(-0.45, 0.26, 1.98), W3(0.42, 0.26, 1.98), W3(0.78, 0, 1.98)],
+  'dist.GND>esp.GNDin': [W3(-2.66, 0, 2.12), W3(-0.8, 0, 2.12), W3(-0.45, 0.26, 2.12), W3(0.42, 0.26, 2.12), W3(0.78, 0, 2.12)],
+  // the data wire leaves the 330Ω strip over the back edge and runs behind the GND wires to the harness
+  'res.out>rig.DIN': [W3(1.4, 0, 1.74)],
 };
-const fanUsed = {};
-function pickTerm(id, name, otherId) {
+function pickTerm(id, name, key) {
   const t = TERM[id]?.[name];
-  if (!t) return null;
-  if (Array.isArray(t)) { const k = id + '.' + name; fanUsed[k] = (fanUsed[k] || 0); return t[fanUsed[k]++ % t.length]; }
-  if (t.padP && (otherId === 'cap' || otherId === 'res')) return t.padP;   // on-board link -> solder pad
-  return t;
+  if (!t || !Array.isArray(t)) return t || null;
+  if (FAN[key] === undefined) console.warn('no FAN entry for', key);
+  return t[FAN[key] ?? 0];
 }
 
 const markerGeo = new THREE.SphereGeometry(0.026, 10, 8);
@@ -656,12 +728,13 @@ function buildWires() {
   const decorBlack = new THREE.MeshStandardMaterial({ color: 0x111215, roughness: 0.5 });
   const pinMetal = new THREE.MeshStandardMaterial({ color: 0xcfd3d8, metalness: 1, roughness: 0.3 });
   CONNECTIONS.forEach((c, n) => {
-    const [pa, ta, pb, tb, cat] = c;
+    const [pa, ta, pb, tb, cat, , flag] = c;
+    if (flag === 'bb') return;                                    // same breadboard strip: nothing to draw
     const key = `${pa}.${ta}>${pb}.${tb}`;
-    const A = pickTerm(pa, ta, pb), B = pickTerm(pb, tb, pa);
+    const A = pickTerm(pa, ta, key), B = pickTerm(pb, tb, key);
     if (!A || !B) { console.warn('missing terminal', pa, ta, pb, tb); return; }
     const W = WIRE[cat];
-    let pts, m, r = W.r;
+    let pts, m, r = W.r, mat = null;
     if (cat === 'bt') {
       // the wireless Bluetooth link: a dashed arc (no wire) so it reads as "over the air"
       const mid = A.p.clone().lerp(B.p, 0.5); mid.y += 1.6;
@@ -675,54 +748,52 @@ function buildWires() {
     }
     const ab = A.hole && B.hole;
     if (A.hole !== B.hole && (A.hole || B.hole)) r = Math.min(r, 0.026);   // 22 AWG into the breadboard
-    if (HARNESS_SLOT[key]) {
+    if (A.leg || B.leg) {                                          // a capacitor leg: bare tinned wire
+      pts = legRoute(A, B); r = 0.009;
+      mat = new THREE.MeshStandardMaterial({ color: 0xd4d8de, metalness: 1, roughness: 0.3, emissive: W.color, emissiveIntensity: 0 });
+    } else if (HARNESS_SLOT[key]) {
       const [sn, sb] = HARNESS_SLOT[key];
       const exit = key.endsWith('INJ_D') ? SPINE_EXIT.D : (key.includes('INJ_') ? SPINE_EXIT.LB : SPINE_EXIT.MAIN);
       const spine = spineFor(exit);
       const segs = Math.max(24, Math.round(spine.getLength() * 6));
       const sp = offsetCurvePoints(spine, sn, sb, segs);
-      const lead = terminalRun(A, r, new THREE.Vector3().subVectors(sp[0], A.p).setY(0).normalize());
+      const via = (VIA[key] || []).map(v => onBench(v, r, v.y));
+      const lead = terminalRun(A, r, flatDir(A.p, via[0] ?? sp[0]));
       const back = sp[0].clone().add(new THREE.Vector3().subVectors(sp[0], sp[1]).setY(0).normalize().multiplyScalar(0.55));
       const br = branchFor(key, cat === 'pwr' ? -1 : 1);
       const end = [B.p.clone().addScaledVector(B.d, B.lead ?? 0.16).add(br.off), B.p.clone().add(br.off)];
-      pts = [...lead, onBench(back, sp[0].y - benchY(back.x, back.z)), ...sp, ...br.pts, ...end];
+      pts = [...lead, ...via, back, ...sp, ...br.pts, ...end];
     } else if (ab) {
       pts = jumperRoute(A, B);
-    } else if (A.p.distanceTo(B.p) < 0.8) {
-      pts = bridgeRoute(A, B); r = Math.min(r, 0.012);
     } else {
       pts = benchRoute(A, B, r, VIA[key], n + 1);
     }
-    const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
-    const geo = new THREE.TubeGeometry(curve, Math.max(24, Math.round(curve.getLength() * 14)), r, 8, false);
-    m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: W.color, roughness: 0.42, metalness: 0,
+    const curve = new OnBench(new THREE.CatmullRomCurve3(pts, false, 'centripetal'), r);
+    const geo = new THREE.TubeGeometry(curve, Math.max(24, Math.round(curve.getLength() * 28)), r, 8, false);   // ~1.4 mm segments
+    m = new THREE.Mesh(geo, mat || new THREE.MeshStandardMaterial({ color: W.color, roughness: 0.42, metalness: 0,
       emissive: W.color, emissiveIntensity: 0 }));
     m.castShadow = true; m.receiveShadow = true;
     scene.add(m);
     // dupont housings where a wire plugs into the breadboard
-    for (const t of [A, B]) if (t.hole) {
-      const h = new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.3, 0.065), decorBlack);
-      h.position.copy(t.p).addScaledVector(up, 0.17); h.castShadow = true; scene.add(h);
-      const pin = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.04, 0.018), pinMetal);
-      pin.position.copy(t.p).addScaledVector(up, 0.01); scene.add(pin);
+    for (const t of [A, B]) if (t.hole) {                         // housing on the board, pin in the hole
+      const h = new THREE.Mesh(new THREE.BoxGeometry(DUPONT.W, DUPONT.H, DUPONT.W), decorBlack);
+      h.position.copy(t.p).addScaledVector(up, DUPONT.H / 2 + 0.001); h.castShadow = true; scene.add(h);
+      const pin = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.06, 0.016), pinMetal);
+      pin.position.copy(t.p).addScaledVector(up, -0.02); scene.add(pin);
+      h.userData.dupont = pin.userData.dupont = key;
     }
-    wires.push(mkWire(m, c, curve, cat));
+    wires.push(mkWire(m, c, curve, cat, !mat));
   });
-  // decorative links that are not in CONNECTIONS: 1OE -> GND jumper, fuse lead -> splice
-  // block, PSU −V -> GND star, the mains cable off the back of the bench
+  // decorative links that are not in CONNECTIONS: the 1OE -> GND jumper and the mains cable
   const deco = (pts, col, r) => {
-    const t = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'centripetal'), 48, r, 8, false),
+    const curve = new OnBench(new THREE.CatmullRomCurve3(pts, false, 'centripetal'), r);
+    const t = new THREE.Mesh(new THREE.TubeGeometry(curve, Math.max(48, Math.round(curve.getLength() * 28)), r, 8, false),
       new THREE.MeshStandardMaterial({ color: col, roughness: 0.45 }));
-    t.castShadow = true; scene.add(t); return t;
+    t.castShadow = true; t.userData.deco = true; scene.add(t); return t;
   };
   const oe = bb.group.localToWorld(bb.hole(49, 'g')), g7 = bb.group.localToWorld(bb.hole(43, 'g'));
-  deco([oe, oe.clone().add(W3(0, 0.08, 0)), oe.clone().lerp(g7, 0.5).add(W3(0, 0.12, 0)), g7.clone().add(W3(0, 0.08, 0)), g7], 0x1d1e22, 0.016);
-  const fl = toWorld(hw.fuse.group, hw.fuse.leadOut), fb = toWorld(hw.fuse.group, hw.fuse.blockIn);
-  deco([fl.p, fl.p.clone().addScaledVector(fl.d, 0.2), onBench(fl.p.clone().add(W3(0.5, 0, -0.2)), 0.04),
-    onBench(fb.p.clone().add(W3(-0.25, 0, -0.45)), 0.04), fb.p.clone().addScaledVector(fb.d, 0.18), fb.p], WIRE.pwr.color, 0.04);
-  const vm = toWorld(hw.psu.group, hw.psu.screws.VM1), si = toWorld(hw.psu.group, hw.psu.starIn);
-  deco([vm.p, vm.p.clone().addScaledVector(vm.d, 0.2), onBench(vm.p.clone().add(W3(0.35, 0, -0.3)), 0.04),
-    onBench(si.p.clone().add(W3(0.5, 0, -0.35)), 0.04), si.p.clone().addScaledVector(si.d, 0.2), si.p], WIRE.gnd.color, 0.04);
+  deco([oe, oe.clone().add(W3(0, 0.08, 0)), oe.clone().lerp(g7, 0.5).add(W3(0, 0.12, 0)), g7.clone().add(W3(0, 0.08, 0)), g7], 0x1d1e22, 0.016)
+    .userData.deco = 'jumper';
   const sheath = [];
   const cores = [['L', 0x7a4a26], ['N', 0x2a5bd7], ['PE', 0x7fbf3a]];
   const join = toWorld(hw.psu.group, { p: new THREE.Vector3(P.mm(70), P.mm(10), P.mm(-60)), d: up });
@@ -730,23 +801,25 @@ function buildWires() {
     const s = toWorld(hw.psu.group, hw.psu.screws[k]);
     deco([s.p, s.p.clone().addScaledVector(s.d, 0.18), onBench(s.p.clone().add(W3(0.4, 0, -0.25 - i * 0.05)), 0.03), join.p.clone().add(W3(0, 0.03, 0))], col, 0.028);
   });
-  sheath.push(join.p, onBench(W3(-5.4, 0, -0.6), 0.09), onBench(W3(-6.2, 0, -6.5), 0.09), W3(-6.4, 0.09, -10.9),
-    W3(-6.5, -0.6, -11.25), W3(-6.6, -6, -11.3), W3(-6.7, -16, -11.2), W3(-6.6, -22.4, -10.4), W3(-5.0, -22.42, -8.6));
+  sheath.push(join.p, onBench(W3(-5.4, 0, -0.6), 0.09), onBench(W3(-6.2, 0, -6.5), 0.09), W3(-6.4, 0.095, -10.85),
+    W3(-6.42, 0.095, -11.0), W3(-6.43, 0.088, -11.036), W3(-6.44, 0.067, -11.067), W3(-6.45, 0.036, -11.088),
+    W3(-6.46, 0, -11.095), W3(-6.5, -0.6, -11.25), W3(-6.6, -6, -11.3), W3(-6.7, -16, -11.2),
+    W3(-6.6, -22.4, -10.4), W3(-5.0, -22.42, -8.6));
   deco(sheath, 0x2b2d31, 0.085);
-  // cable ties around the pole + harness, and around the rod + harness
-  const tie = (y, cx, cz, rr) => {
-    const t = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.014, 6, 40), new THREE.MeshStandardMaterial({ color: 0x0f1012, roughness: 0.6 }));
-    t.rotation.x = Math.PI / 2; t.position.set(cx, y, cz); t.scale.set(1, 0.72, 1); scene.add(t);
+  // cable ties around the pole + harness, and around the D-C rod + harness
+  const tie = (y, cx, cz, rx, rz) => {
+    const t = new THREE.Mesh(new THREE.TorusGeometry(rx, 0.014, 6, 40), new THREE.MeshStandardMaterial({ color: 0x0f1012, roughness: 0.6 }));
+    t.rotation.x = Math.PI / 2; t.position.set(cx, y, cz); t.scale.set(1, rz / rx, 1); scene.add(t);
   };
-  tie(1.45, 0.083, -4.117, 0.26); tie(1.85, 0.083, -4.117, 0.26); tie(6.15, 0.02, -4.25, 0.18);
+  tie(1.45, 0.083, -4.117, 0.26, 0.187); tie(1.85, 0.083, -4.117, 0.26, 0.187); tie(5.75, 0.04, -4.14, 0.17, 0.27);
 }
-function mkWire(mesh, conn, curve, type) {
-  const markers = [];
-  if (type !== 'bt') for (const off of [0, 0.5]) {
+function mkWire(mesh, conn, curve, type, flow = true) {
+  const markers = [];                                  // (a bare capacitor leg is too short for flow markers)
+  if (flow && type !== 'bt') for (const off of [0, 0.5]) {
     const glowCol = type === 'gnd' ? 0x8fa3c2 : WIRE[type].color;          // black wire -> a cool-white pulse
     const s = new THREE.Mesh(markerGeo, new THREE.MeshStandardMaterial({ color: glowCol, emissive: glowCol, emissiveIntensity: 2.2 }));
     s.userData.off = off; s.castShadow = false; scene.add(s); markers.push(s);
-  } else for (const off of [0, 0.33, 0.66]) {
+  } else if (type === 'bt') for (const off of [0, 0.33, 0.66]) {
     const s = new THREE.Mesh(markerGeo, new THREE.MeshStandardMaterial({ color: WIRE.bt.color, emissive: WIRE.bt.color, emissiveIntensity: 2.4 }));
     s.userData.off = off; scene.add(s); markers.push(s);
   }
@@ -1421,7 +1494,8 @@ function tick() {
 // debug/automation hook (screenshots, smoke test) — only with ?debug in the URL
 if (new URLSearchParams(location.search).has('debug')) {
   window.__bench = { stage, camera, controls, select, clearSelect, setPower, doScramble, doTwist, doUndo, doReset,
-    pressPlane, setDir, clearDir, moveCell, flyTo, focusPart, puzzle, wires, TERM,
+    pressPlane, setDir, clearDir, moveCell, flyTo, focusPart, puzzle, wires, TERM, CONNECTIONS,
+    bbBox: BB_BOX, bbGroup: bb.group, PART_GROUP, MAT, BENCH, MAT_TOP, RIG,      // for tools/bench-audit.mjs
     get sel() { return sel; }, get colorAnim() { return colorAnim; }, get moves() { return moves; },
     get selected() { return selected; }, get chainOn() { return chainOn; },
     finishAnimations() { if (flight) flight.t = flight.ms; if (colorAnim) colorAnim.t = colorAnim.dur; } };

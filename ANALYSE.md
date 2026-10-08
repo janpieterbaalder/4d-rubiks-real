@@ -48,7 +48,7 @@ Ernst: **H** = verkeerd gedrag voor de gebruiker · **M** = inconsistentie/ontwe
 | 8 | Werkbank | Pijltje vasthouden + van venster wisselen → richting bleef "vast"; volgende vlakknop draaide meteen | L | **Opgelost** (blur laat los) |
 | 9 | Werkbank | `Shift+S` ingedrukt houden husselde herhaald; `Ctrl/Cmd`-sneltoetsen activeerden spelacties | L | **Opgelost** |
 | 10 | Werkbank vs. docs | `BEDRADING.md` §2 zegt dat de kleuren gelijk zijn aan de werkbank (🟠 5V-data, ⚫ GND), maar de werkbank had één gele datakleur en grijze massa | M | **Opgelost**: aparte 3,3V- (geel) en 5V-data (oranje), zwarte GND; legenda gegenereerd uit dezelfde tabel |
-| 11 | Werkbank vs. docs | 330Ω en 1000µF stonden op tafel naast de ESP32, terwijl `BEDRADING.md` "zo dicht mogelijk bij led #0" voorschrijft | M | **Opgelost**: ingangsprintje direct onder de middelste kubus (ook in `BEDRADING.md` beschreven) |
+| 11 | Werkbank vs. docs | 330Ω en 1000µF stonden op tafel naast de ESP32, terwijl `BEDRADING.md` "zo dicht mogelijk bij led #0" voorschrijft | M | **Herzien** (prototype-opstelling): 330Ω op het breadboard direct achter de levelshifter, 1000µF over de 5V/GND-verdeelblokken; eindbouw bij led #0 — beide in `BEDRADING.md` §2 |
 | 12 | Werkbank | Geselecteerde kern-led (midden van een kubus) is bij matte kubusjes onzichtbaar | L | **Opgelost** met lichtlek naar de buurkubusjes (zoals echte PETG-diffusers doen) |
 | 13 | Prestaties | 189 losse led-meshes + 189 materialen; schaduwkaart zou elk frame herberekend worden | M | **Opgelost**: één InstancedMesh (−188 draw-calls), schaduw alleen bij verandering, kwaliteitsschakelaar hoog/laag |
 | 14 | Firmware ESP32 | Meerdere knoppen in één controller-frame konden een tweede zet starten terwijl de eerste animatie net begon (golf van zet 1 ging verloren) | L | **Opgelost** (`if (animating) return;`, ook in de Wokwi-ESP32-testbank) |
@@ -62,6 +62,11 @@ Ernst: **H** = verkeerd gedrag voor de gebruiker · **M** = inconsistentie/ontwe
 | 22 | Firmware ESP32 | `FastLED.show()` draait elke loop, ook als er niets verandert (~5,7 ms per frame voor 189 leds) | L | Aanbeveling — op de ESP32 (RMT) onschadelijk |
 | 23 | Legacy | `tesseract_rig.ino` (Mega) en `firmware/wokwi/` (AVR) kregen alleen de engine-fix, niet de invoer-fixes #14/#15 | L | Bewust: die varianten zijn vervallen |
 | 24 | Afhankelijkheden | Three.js en marked komen van unpkg (CDN): offline werkt de werkbank niet | L | Aanbeveling: eventueel lokaal meeleveren |
+| 25 | Werkbank | Ingangsprintje: schema klopte (5V/GND/DATA, elco parallel met de streep aan GND, 330Ω in serie), maar de tekening miste de verbinding DATA-klem → 330Ω en het −-draadje van de elco kruiste over de +-verbinding | L | **Vervallen**: printje vervangen door de prototype-opstelling (#11) |
+| 26 | Werkbank | 5 draden naar het breadboard liepen deels dóór de printplaat (o.a. 5V en GND naar de ESP32) | L | **Opgelost**: jumpers gaan recht omhoog en over de bordrand; de smoke test controleert het |
+| 27 | Hardware-ontwerp | Ongebruikte ingangen van de 74AHCT125 (2A–4A, 2OE–4OE) zweven; de datasheet eist vastleggen op VCC/GND | L | **Gedocumenteerd** (`BEDRADING.md` §2, info-kaartje levelshifter); niet in 3D getekend |
+| 28 | Werkbank | Exacte geometrie-audit (draad als buis mét dikte): de GND-jumper raakte bij het opstijgen de ESP32-print (0,14 mm), 4 kabelboomdraden sneden in de achterrand van de mat (tot 1,3 mm), het netsnoer door de achterrand van het werkbankblad (2,9 mm) en 3 injectiedraden door de staven in de rig (0,3–1,4 mm). Daarnaast boog de draad al binnen het dupont-huisje en stonden de DIP-poten 0,14 mm naast de rijafstand van 7,62 mm | L | **Opgelost**; `tools/bench-audit.mjs` controleert dit in de smoke test |
+| 29 | Werkbank | Aansluitingen nagelopen vanuit de 3D-geometrie tegen de pinout van de ESP32-DevKitC V4 (J2/J3) en de 74AHCT125-datasheet: elke pin, poot en elk draadeinde zit in de juiste breadboard-strook, niets anders deelt een strook | — | **Klopt** (geen fout gevonden); vastgelegd in de smoke test en als tabel in `BEDRADING.md` §2 |
 
 ## 3. De 3D-omgeving: wat er veranderd is
 
@@ -85,18 +90,19 @@ pitch ~25 mm, rig ~50 cm hoog):
   gelabelde pinrijen) op een **830-punts breadboard**; 5V, GND en GPIO13 zitten op de juiste pinnen.
 - **74AHCT125** als DIP-14 over de middengoot, met 1OE→GND-jumper (pin 1→7), 1A = pin 2, 1Y = pin 3.
 - **5V/10A-voeding** (geperforeerde kap, schroefklemmen L/N/⏚/−V/+V, DC-OK-led, V-ADJ) met netsnoer van de
-  werkbank af, en een **GND-sterpunt** (hendelklemblok) — letterlijk het "één sterpunt" uit `BEDRADING.md` §6.
+  werkbank af.
 - **Schakelkastje** met verlichte wipschakelaar die meebeweegt met *Aan/Uit*; **inline steekzekering 10A**
-  (rood, zichtbaar door de klep) met **5V-verdeelblok**.
-- **Ingangsprintje** op de staaf onder de middelste kubus: schroefklem 5V/GND/DATA, 1000µF (streep aan de
-  −-poot), 330Ω (oranje-oranje-bruin-goud), drie korte draadjes naar led #0.
+  (rood, zichtbaar door de klep), gevolgd door de **verdeelblokken 5V + GND** (hendelklemmen; het GND-blok is
+  het "één sterpunt" uit `BEDRADING.md` §6) met de **1000µF** (streep aan de −-poot) over de binnenste klemmen.
+- **330Ω** (oranje-oranje-bruin-goud) op het breadboard, direct achter de levelshifter in de kolom van 1Y.
+  Dit is de prototype-opstelling; in de eindbouw horen 330Ω en 1000µF bij led #0 (`BEDRADING.md` §2).
 - **Draadloze controller** (DualShock-4-vorm, lichtbalk gloeit als hij verbonden is) en een paar
   werkplaats-accessoires (soldeertin, multimeter die 5,02 V meet).
 
 **Draden**: in plaats van bogen door de lucht liggen draden op de werkbank; dikte per functie (16–18 AWG
 voeding, 22 AWG naar het breadboard, jumpers met dupont-huisjes). Alles naar de rig loopt als **kabelboom**
 over de voet en langs de paal (met tie-wraps), **dóór** kubus D via de geboorde middenkolom (zoals de paal in
-het Blender-model) en langs de staaf naar het ingangsprintje. De injectieparen lopen binnendoor — door kubus C,
+het Blender-model) en langs de staaf de middelste kubus in, naar led #0. De injectieparen lopen binnendoor — door kubus C,
 langs de staven en tussen de lagen kubusjes — naar de eerste led van hun arm. Staven en paal lopen
 hart-op-hart door de kubussen.
 
@@ -138,7 +144,7 @@ armen loopt via het midden. Laten zoals hij is.
 |---|---|---|
 | `node engine.test.js` | engine.js = game-projectie | 28/28 |
 | `node firmware/test/parity.test.mjs` | C++-engine = engine.js over 4.033 willekeurige operaties (189 leds, sticker-id's, isSolved, undo-diepte, 4D-zicht) | groen (rood vóór fix #1) |
-| `node tools/smoke.mjs` | werkbank start foutloos, rendert, toetsenbord-spel, infopaneel, weergaveknoppen | 15/15 |
+| `node tools/smoke.mjs` | werkbank start foutloos, alle verbindingen getekend, prototype-opstelling, exacte geometrie (geen draad door onderdelen, breadboard, mat, werkbank of rig-frame), elke pin in de juiste breadboard-strook, rendert, toetsenbord-spel, infopaneel, weergaveknoppen; iPhone 15 Pro portret + landschap | 47/47 |
 | `game/test/*.test.js` | wiskunde + academy van de game (jsdom) | groen |
 
 Alles draait in GitHub Actions (`.github/workflows/tests.yml`) bij elke push en pull request.

@@ -61,6 +61,10 @@ Kleurcodes komen overeen met de 3D-werkbank: 🔴 +5V · ⚫ GND · 🟡 Data 3,
 🟠 Data 5V (ná de levelshifter) · 🟣 Bluetooth (draadloos).
 
 ### Voeding (aparte 5V-bron)
+Na de zekering vertakt de 5V in een **5V-verdeelblok** (hendelklemmen); alle GND-takken komen uit
+het **GND-verdeelblok** ernaast — het sterpunt, gevoed met één dikke draad vanaf de −V-klem van de
+voeding. "Zekering `out`" en "Voeding **GND**" hieronder betekenen dus: via die verdeelblokken.
+
 | Van | Naar | Kleur | Opmerking |
 |-----|------|-------|-----------|
 | Voeding **+5V** | Aan/uit-schakelaar `in` | 🔴 | dikke draad (16–18 AWG) |
@@ -77,22 +81,48 @@ Kleurcodes komen overeen met de 3D-werkbank: 🔴 +5V · ⚫ GND · 🟡 Data 3,
 |-----|------|-------|-----------|
 | ESP32 **GPIO13** | Levelshifter ingang **A1** | 🟡 | 3,3V-data (`LED_PIN` in de firmware) |
 | Levelshifter uitgang **Y1** | 330Ω weerstand `in` | 🟠 | nu een geldige 5V-high |
-| 330Ω `out` | Led-rig **DIN** (led #0) | 🟠 | weerstand zo dicht mogelijk bij led #0 |
+| 330Ω `out` | Led-rig **DIN** (led #0) | 🟠 | eindbouw: weerstand zo dicht mogelijk bij led #0 (prototype: zie hieronder) |
 
 > De 74AHCT125 is een quad-buffer met per kanaal een **enable** (`1OE`, actief-laag): koppel
-> `1OE` aan **GND** zodat buffer 1 altijd doorgeeft. Eén kanaal volstaat voor de datalijn.
+> `1OE` aan **GND** zodat buffer 1 altijd doorgeeft. Eén kanaal volstaat voor de datalijn. Laat de
+> ongebruikte ingangen niet zweven (datasheet): `2OE`/`3OE`/`4OE` aan 5V (die kanalen uit) en
+> `2A`/`3A`/`4A` aan GND.
 
-### Buffercondensator (bij de leds, vlak bij DIN)
+### Buffercondensator (1000µF over 5V/GND, waar de led-stroom vertrekt)
 | Van | Naar | Kleur | Opmerking |
 |-----|------|-------|-----------|
-| Elco **+** | Led-rig **+5V** | 🔴 | 1000µF |
-| Elco **−** (streep) | Led-rig **GND** | ⚫ | **let op polariteit** |
+| Elco **+** | **+5V** (eindbouw: bij led #0 · prototype: 5V-verdeelblok) | 🔴 | 1000µF |
+| Elco **−** (streep) | **GND** (eindbouw: bij led #0 · prototype: GND-verdeelblok) | ⚫ | **let op polariteit** |
 
-> **Praktisch: een ingangsprintje.** Zet de 330Ω en de 1000µF samen op een klein stukje
-> gaatjesprint met een 3-polige schroefklem (**5V · GND · DATA**), geklemd op de staaf direct
-> onder de middelste kubus. De kabelboom van de werkbank eindigt in die schroefklem; vanaf het
-> printje lopen drie korte draadjes naar led #0. Zo zitten weerstand en elco binnen enkele cm
-> van led #0 — precies zoals in de 3D-werkbank.
+> **Prototype (zoals in de 3D-werkbank).** De **330Ω** steekt op het breadboard direct achter de
+> levelshifter: één poot in de kolom van uitgang `1Y` (pin 3) — geen draadje nodig — de andere in
+> een vrije kolom, waar de datadraad naar led #0 begint. De **1000µF** zit met zijn poten in de twee
+> verdeelblokken (+ in 5V, − in GND), waar de dikke draden naar de leds vertrekken — **niet op het
+> breadboard**: daar loopt (en mag) de led-stroom niet (gangbare breadboards zijn gespecificeerd op
+> ca. 1A per contact), dus daar zou de elco op een zijtak zitten. De kabelboom brengt 5V, GND en
+> DATA rechtstreeks naar led #0.
+>
+> **Breadboard-indeling van het prototype** (830 gaatjes; kolomnummers en rijletters zoals op het bord
+> gedrukt; per kolom zijn **a–e** en **f–j** elk één strook):
+>
+> | Wat | Gaatje(s) | Zelfde strook als |
+> |---|---|---|
+> | ESP32-DevKitC, pinrij J2 | rij **i**, kolom 20 (5V) … 38 (3V3) | — |
+> | ESP32-DevKitC, pinrij J3 | rij **a**, kolom 20 (CLK) … 38 (GND) | — |
+> | 🔴 5V-draad naar de ESP32 | **20j** | J2-19 **5V** |
+> | 🟡 jumper GPIO13 → 1A | **24j** → **49h** | J2-15 **IO13** → pin 2 **1A** |
+> | ⚫ GND-draad naar de ESP32 | **25j** | J2-14 **GND** |
+> | 74AHCT125 (inkeping rechts) | pin 1–7 in rij **f**, kolom 50 → 44; pin 8–14 in rij **e**, kolom 44 → 50 | — |
+> | ⚫ jumper 1OE → GND | **50g** → **44g** | pin 1 **1OE** → pin 7 **GND** |
+> | ⚫ GND-draad naar de levelshifter | **44j** | pin 7 **GND** |
+> | 🔴 5V-draad naar de levelshifter | **50c** | pin 14 **VCC** |
+> | 330Ω | **48j** → **52j** | pin 3 **1Y** → vrije kolom 52 |
+> | 🟠 datadraad naar led #0 | **52h** | 330Ω-uitgang |
+>
+> **Eindbouw.** Verhuis de 330Ω en de 1000µF naar led #0, bijv. samen op een klein stukje
+> gaatjesprint met een 3-polige schroefklem (**5V · GND · DATA**) en drie korte draadjes naar
+> led #0. Adafruit adviseert de weerstand aan de led-kant van de datadraad; bij de korte draad van
+> het prototype (≈ 0,5 m, inschatting) werkt hij ook aan de kant van de levelshifter.
 
 ### Controller (draadloos — geen shield, geen dongle)
 | Van | Naar | Kleur | Opmerking |
@@ -131,7 +161,8 @@ Kleurcodes komen overeen met de 3D-werkbank: 🔴 +5V · ⚫ GND · 🟡 Data 3,
         └──────────────────────────────────────────────────────────────────────────────┘
 
    ESP32 GPIO13 ──🟡3,3V──► [ 74AHCT125 ] ──🟠5V──[ 330Ω ]──► DIN (led #0)
-                            (1OE → GND)            1000µF: + op +5V, − op GND  (bij led #0)
+                            (1OE → GND)            1000µF: + op +5V, − op GND
+                                                   (prototype: over de verdeelblokken; eindbouw: bij led #0)
 
    Controller (PS4/PS5/Xbox/8BitDo/Switch Pro of DS3) → ESP32 ingebouwde Bluetooth (Bluepad32).
    Husselen/Reset = SELECT/START op de controller.
@@ -222,9 +253,11 @@ oorspronkelijke "draai leek onzichtbaar"-bug; opgelost in `ORIENT`).
 1. **Gemeenschappelijke GND.** De massa van voeding, ESP32, levelshifter én leds moet aan elkaar.
    Zonder gedeelde GND "zweeft" het datasignaal → willekeurig geknipper. (Fout #1 bij WS2812.) Bij
    **power-injectie** moeten álle GND-takken van hetzelfde voeding-massapunt (één sterpunt) komen,
-   zodat alle led-segmenten dezelfde datareferentie delen.
-2. **330Ω in de datalijn**, vlak bij led #0 — dempt spanningspieken (achter de levelshifter).
-3. **1000µF condensator** over 5V/GND bij de leds — vangt inschakelpieken. Kies **10–16V**
+   zodat alle led-segmenten dezelfde datareferentie delen (in de werkbank: het GND-verdeelblok).
+2. **330Ω in de datalijn**, achter de levelshifter — dempt spanningspieken. Eindbouw: vlak bij
+   led #0; prototype: op het breadboard (zie §2).
+3. **1000µF condensator** over 5V/GND waar de led-stroom vertrekt — vangt inschakelpieken.
+   Eindbouw: bij led #0; prototype: over de verdeelblokken (nooit via het breadboard). Kies **10–16V**
    (niet de 6,3V-ondergrens). **Polariteit:** − (streep) naar GND. Tip: bij lange armen ook een
    kleinere elco (100–470µF) bij elk injectiepunt.
 4. **Levelshifter (3,3V → 5V) op de datalijn**, bijv. een 74AHCT125 (TTL-ingang, accepteert 3,3V).
