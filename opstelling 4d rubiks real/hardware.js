@@ -24,9 +24,9 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { Tesseract, AXN, ORIENT } from './engine.js?v=4';
 // NOTE: bump ?v= on ALL bench imports together (also inside bench/*.js), else a module loads twice
-import { createStage, MAT, BENCH } from './bench/stage.js?v=12';
-import * as P from './bench/parts.js?v=12';
-import { hotspotTexture, DEVKIT } from './bench/textures.js?v=12';
+import { createStage, MAT, BENCH } from './bench/stage.js?v=13';
+import * as P from './bench/parts.js?v=13';
+import { hotspotTexture, DEVKIT } from './bench/textures.js?v=13';
 
 // ---- wire categories: 3D insulation colour, legend colour, label, wire radius (scene units)
 const WIRE = {
@@ -187,7 +187,8 @@ const INFO = {
       ESP32 — anders is zijn 5V-uitgang ongeldig. Eén kanaal volstaat: <b>ingang 1A</b> (pin 2) =
       GPIO13, <b>uitgang 1Y</b> (pin 3) → de 330Ω (steekt in dezelfde kolom) → de eerste led. De <b>1OE</b> (pin 1, actief-laag)
       gaat met het korte zwarte jumpertje naar <b>GND</b> (pin 7) — dan is de uitgang actief.</p>`,
-    notes: [['','Ongebruikte ingangen niet laten zweven (datasheet): 2OE/3OE/4OE aan 5V (die kanalen uit) en 2A/3A/4A aan GND.'],
+    notes: [['','Ongebruikte ingangen niet laten zweven (datasheet): zes draadbruggen — 2OE + 2A aan GND (achter, kolom 44), 3OE, 3A, 4OE en 4A aan 5V (voor, kolom 50).'],
+      ['','Plaats de chip op de inkeping en het stipje (naar kolom 50), niet op de leesrichting van de opdruk: 180° gedraaid komt 5V op pin 7 (GND) en GND op pin 14 (VCC).'],
       ['','Op een 5V-microcontroller (Arduino Mega) is dit niet nodig; die stuurt de leds rechtstreeks aan.']],
   },
   ps3: {
@@ -551,9 +552,9 @@ const P_LOCAL = (x, y, z) => new THREE.Vector3(x, y, z).add(RIG.OFFSET);   // ri
   // (-1,-1,-1) corner: DIN, 5V and GND land side by side on the top face of that cubie.
   const led0 = meshes.C[0].position;
   const top0 = (dx) => ({ p: new THREE.Vector3(led0.x + dx, led0.y + RIG.CUB / 2 + 0.005, led0.z), d: UPaxis.clone(), lead: 0.05 });
-  setTerm('rig', 'DIN', g, top0(-0.03));
+  setTerm('rig', 'DIN', g, top0(0.075));                          // a wire thickness + play apart
   setTerm('rig', '5V', g, top0(0));
-  setTerm('rig', 'GND', g, top0(0.03));
+  setTerm('rig', 'GND', g, top0(-0.075));
 
   // power-injection contacts INSIDE the first led of each injected arm (strip #54 L, #108 D,
   // #162 B): that led sits in the arm's inner layer; the wires come in through the bore along
@@ -591,7 +592,7 @@ function floorAt(x, z, r) {
 // a smooth spline through the waypoints overshoots before a steep rise (e.g. up to a breadboard edge)
 // and would dive into the mat; this wrapper keeps every point of the wire on top of the bench
 class OnBench extends THREE.Curve {
-  constructor(curve, r) { super(); this.curve = curve; this.r = r; }
+  constructor(curve, r) { super(); this.curve = curve; this.r = r; this.arcLengthDivisions = Math.max(200, (curve.points?.length ?? 0) * 4); }
   getPoint(t, out = new THREE.Vector3()) {
     this.curve.getPoint(t, out);
     const floor = floorAt(out.x, out.z, this.r);
@@ -606,26 +607,29 @@ class OnBench extends THREE.Curve {
 const HB = 0.135;                                   // bundle centre height above the surface it lies on
 const SPINE = [
   W3(0.35, MAT_TOP + HB, 1.15), W3(0.31, MAT_TOP + HB, -0.88), W3(0.28, HB, -1.3), W3(0.24, 0.5, -2.05),
-  W3(0.2, 0.98, -3.2), W3(0.166, 1.12, -4.0), W3(0.166, 1.95, -4.034), W3(0.166, 3.41, -4.034),
+  W3(0.2, 0.98, -3.2), W3(0.166, 1.12, -4.0), W3(0.166, 1.95, -4.034), W3(0.166, 3.3, -4.034),
   W3(0.166, 4.15, -4.034), W3(0.22, 4.5, -3.99), W3(0.0, 6.0, -4.03),
 ];
 const SPINE_EXIT = { D: 7, LB: 9, MAIN: 10 };       // index of the spine point where a branch leaves
-const BUNDLE = 0.07;                                // slot spacing in the bundle
-// the order in which harness wires take their slot in the bundle (n, b in the spine frame)
+const BUNDLE = 0.075;                               // slot spacing in the bundle (wires 0.068 thick + play)
+// the slot of every harness wire in the 3x3 bundle: [n, b] in the spine frame. b = column: +1 left (−x),
+// 0 middle, −1 right. n = row: −1 top on the bench / front (+z) up the pole, 0 middle, +1 bottom / back.
+// The front row holds the main three (GND, 5V, DIN — left to right, as they land on led #0); every
+// injection pair has a column of its own, GND in front of 5V: D on the left, where it leaves to the left,
+// L and B behind the main three, where they leave to the back. On the mat each wire comes in on the side
+// of its column, so no two wires of one row cross.
 const HARNESS_SLOT = {
-  'res.out>rig.DIN': [0, 0],
-  'dist.5V>rig.5V': [-1, -1], 'dist.GND>rig.GND': [-1, 1],
-  'dist.5V>rig.INJ_D': [0, -1], 'dist.GND>rig.INJ_D': [0, 1],
-  'dist.5V>rig.INJ_L': [1, -1], 'dist.GND>rig.INJ_L': [-1, 0],
-  'dist.5V>rig.INJ_B': [1, 1], 'dist.GND>rig.INJ_B': [1, 0],
+  'dist.GND>rig.GND': [-1, 1], 'dist.5V>rig.5V': [-1, 0], 'res.out>rig.DIN': [-1, -1],
+  'dist.GND>rig.INJ_D': [0, 1], 'dist.GND>rig.INJ_L': [0, 0], 'dist.GND>rig.INJ_B': [0, -1],
+  'dist.5V>rig.INJ_D': [1, 1], 'dist.5V>rig.INJ_L': [1, 0], 'dist.5V>rig.INJ_B': [1, -1],
 };
-// the entry of the distribution blocks each wire uses (0..7, left to right). Left: the breadboard
-// GND wires (straight back, then along the breadboard), middle: the harness pairs, right: the
-// breadboard 5V wires; the 1000µF bridges the two inner entries (GND 7, 5V 0).
+// the entry of the distribution blocks each wire uses (0..7, left to right). Left: the breadboard GND
+// wires (straight back, then along the breadboard), middle: the harness wires by the bundle column they
+// go to, right: the breadboard 5V wires; the 1000µF bridges the two inner entries (GND 7, 5V 0).
 const FAN = {
-  'dist.GND>lvl.GND': 1, 'dist.GND>esp.GNDin': 2, 'dist.GND>rig.INJ_B': 3, 'dist.GND>rig.INJ_L': 4,
-  'dist.GND>rig.INJ_D': 5, 'dist.GND>rig.GND': 6, 'dist.GND>cap.-': 7,
-  'dist.5V>cap.+': 0, 'dist.5V>rig.5V': 1, 'dist.5V>rig.INJ_D': 2, 'dist.5V>rig.INJ_L': 3,
+  'dist.GND>lvl.GND': 1, 'dist.GND>esp.GNDin': 2, 'dist.GND>rig.GND': 3, 'dist.GND>rig.INJ_D': 4,
+  'dist.GND>rig.INJ_L': 5, 'dist.GND>rig.INJ_B': 6, 'dist.GND>cap.-': 7,
+  'dist.5V>cap.+': 0, 'dist.5V>rig.INJ_D': 1, 'dist.5V>rig.5V': 2, 'dist.5V>rig.INJ_L': 3,
   'dist.5V>rig.INJ_B': 4, 'dist.5V>esp.5Vin': 5, 'dist.5V>lvl.VCC': 6,
 };
 function spineFor(lastIdx) {
@@ -638,25 +642,78 @@ function offsetCurvePoints(curve, n, b, segs) {
   }
   return out;
 }
-// branch paths (world) from the spine exit to the rig terminal, per injection / main wire
-function branchFor(key, pair) {
-  const o = pair * 0.036;                                       // the two wires of a pair side by side
-  // D: from the bore of cube D into the gap between its middle and top layer, round the pole, to led #108
-  if (key.endsWith('INJ_D')) return { off: W3(o, 0, 0), pts: [W3(-0.12 + o, 3.41, -3.98), W3(-0.45 + o, 3.41, -4.55), W3(-0.56 + o, 3.41, -4.74)] };
-  // L / B: up behind the D-C rod, into cube C through its bottom bore, up to the height of the
-  // arm rods, out through the bore of the face-centre cubie, along the rod and into the arm
-  if (key.endsWith('INJ_L')) return { off: W3(0, 0, o), pts: [W3(0.15, 4.62, -4.2 + o), W3(0.06, 4.72, -4.31 + o),
-    W3(-0.06, 4.85, -4.33 + o), W3(-0.09, 6.35, -4.33 + o), W3(-0.09, 7.12, -4.33 + o), W3(-0.14, 7.26, -4.29 + o),
-    W3(-0.3, 7.3, -4.22 + o), W3(-0.6, 7.3, -4.2 + o), W3(-0.95, 7.3, -4.2 + o), W3(-3.35, 7.3, -4.2 + o),
-    W3(-3.7, 7.3, -4.2 + o), W3(-3.99, 7.25, -4.25 + o), W3(-3.99, 6.9, -4.7 + o)] };
-  if (key.endsWith('INJ_B')) return { off: W3(o, 0, 0), pts: [W3(0.15 + o, 4.75, -4.33), W3(0.09 + o, 6.35, -4.32),
-    W3(0.09 + o, 7.12, -4.32), W3(0.08 + o, 7.26, -4.38), W3(0.07 + o, 7.3, -4.5), W3(0.07 + o, 7.3, -4.8),
-    W3(0.07 + o, 7.3, -5.12), W3(0.07 + o, 7.3, -7.55), W3(0.07 + o, 7.3, -7.85), W3(0.0 + o, 7.25, -8.19),
-    W3(-0.45 + o, 6.9, -8.19)] };
-  // main (DIN / 5V / GND): into cube C through its bottom bore, then in the gap between its bottom and
-  // middle layer to the top face of led #0
-  const s = key.endsWith('DIN') ? -0.03 : key.endsWith('rig.GND') ? 0.03 : 0;
-  return { off: W3(0, 0, 0), pts: [W3(-0.12 + s, 6.35, -4.08), W3(-0.12 + s, 6.8, -4.08), W3(-0.2 + s, 7.09, -4.18), W3(-0.48 + s, 7.09, -4.65)] };
+// Every branch leaves the bundle as a flat group: lanes BUNDLE apart across a shared centre line (`lead`
+// straight on along the bundle, `pts`, then into its terminal). The lanes lie along `pref`, turned square to the wire at every point, so two
+// wires of a branch never run one behind the other: side by side across the gap between two layers of
+// leds, side by side under a rod. They start the way the wires sit in the bundle and turn to `pref` over
+// `twist` (arc length after the exit); the B pair turns a quarter turn on its way up behind the rod. A
+// `pref` that changes along the way (a function of the point) turns the group square to its last run,
+// so it lands on its led without a twist at the very end.
+const LANES = {
+  // D: out of the bore of cube D into the gap between its middle and top layer, past the rod, to led #108
+  D: { exit: SPINE_EXIT.D, term: 'INJ_D', pref: W3(-0.8, 0, 0.6), lead: 0.05, keys: ['dist.5V>rig.INJ_D', 'dist.GND>rig.INJ_D'],
+    pts: [W3(0.03, 3.405, -4.07), W3(-0.12, 3.41, -4.06), W3(-0.45, 3.41, -4.55), W3(-0.56, 3.41, -4.74)] },
+  // L / B: up behind the D-C rod, into cube C through its bottom bore, up to the height of the arm rods,
+  // out through the bore of the face-centre cubie, along (under) the rod and into the arm
+  L: { exit: SPINE_EXIT.LB, term: 'INJ_L', pref: p => W3(0, 0, 1).lerp(W3(0, -0.76, 0.65), smooth01((-3.6 - p.x) / 0.3)), keys: ['dist.5V>rig.INJ_L', 'dist.GND>rig.INJ_L'],
+    pts: [W3(0.17, 4.7, -4.17), W3(0.06, 4.8, -4.31), W3(-0.06, 4.92, -4.33), W3(-0.09, 6.35, -4.33),
+      W3(-0.09, 7.12, -4.33), W3(-0.14, 7.26, -4.29), W3(-0.3, 7.3, -4.22), W3(-0.6, 7.3, -4.2), W3(-0.95, 7.3, -4.2),
+      W3(-3.35, 7.3, -4.2), W3(-3.7, 7.3, -4.2), W3(-3.99, 7.25, -4.25), W3(-3.99, 6.9, -4.7)] },
+  B: { exit: SPINE_EXIT.LB, term: 'INJ_B', pref: p => W3(1, 0, 0).lerp(W3(0.61, -0.79, 0), smooth01((-7.8 - p.z) / 0.3)), twist: [0.6, 1.6], keys: ['dist.5V>rig.INJ_B', 'dist.GND>rig.INJ_B'],
+    pts: [W3(0.27, 4.7, -4.2), W3(0.2, 4.88, -4.33), W3(0.09, 6.35, -4.32), W3(0.09, 7.12, -4.32), W3(0.08, 7.26, -4.38), W3(0.07, 7.3, -4.5),
+      W3(0.07, 7.3, -4.8), W3(0.07, 7.3, -5.12), W3(0.07, 7.3, -7.55), W3(0.07, 7.3, -7.85), W3(0.0, 7.25, -8.19),
+      W3(-0.45, 6.9, -8.19)] },
+  // main (GND / 5V / DIN): into cube C through its bottom bore, then in the gap between its bottom and
+  // middle layer to led #0, the last bit straight back (square to the three) onto its top face, where
+  // they land side by side (top0 in the rig)
+  MAIN: { exit: SPINE_EXIT.MAIN, term: '5V', pref: W3(1, 0, 0), keys: ['dist.GND>rig.GND', 'dist.5V>rig.5V', 'res.out>rig.DIN'],
+    pts: [W3(-0.12, 6.35, -4.08), W3(-0.12, 6.8, -4.08), W3(-0.2, 7.09, -4.18), W3(-0.5, 7.09, -4.42), W3(-0.62, 7.09, -4.64)] },
+};
+const LANE_OF = {};
+for (const [g, L] of Object.entries(LANES)) for (const k of L.keys) LANE_OF[k] = g;
+const smooth01 = x => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
+// the run of harness wire `key` inside the bundle: the spine offset to its slot, up to its branch exit
+const bundleRuns = {};
+function bundleRun(key) {
+  if (!bundleRuns[key]) {
+    const [sn, sb] = HARNESS_SLOT[key], spine = spineFor(LANES[LANE_OF[key]].exit);
+    bundleRuns[key] = { pts: offsetCurvePoints(spine, sn, sb, Math.max(24, Math.round(spine.getLength() * 6))), tan: spine.getTangentAt(1) };
+  }
+  return bundleRuns[key];
+}
+// a branch's centre line from the exit into its terminal (~1 mm samples) and the lane direction at each
+const laneCentres = {};
+function laneCentre(g) {
+  if (laneCentres[g]) return laneCentres[g];
+  const G = LANES[g], T = TERM.rig[G.term], ex = G.keys.map(k => bundleRun(k).pts.at(-1));
+  const M = ex.reduce((s, v) => s.add(v), W3(0, 0, 0)).divideScalar(ex.length);
+  const e0 = ex.at(-1).clone().sub(ex[0]).normalize();                 // across the group as it leaves the bundle
+  const prefAt = typeof G.pref === 'function' ? G.pref : () => G.pref;
+  const sign = prefAt(M).dot(e0) < 0 ? -1 : 1;                       // the way round closest to e0
+  const tan = bundleRun(G.keys[0]).tan;                              // leaves the bundle along it (no kink)
+  const ctrl = [M.clone().addScaledVector(tan, -0.3), M, M.clone().addScaledVector(tan, G.lead ?? 0.1), ...G.pts,
+    T.p.clone().addScaledVector(T.d, T.lead), T.p.clone()];
+  const cr = new THREE.CatmullRomCurve3(ctrl, false, 'centripetal'), n = ctrl.length - 1, c = [];
+  for (let j = 1; j < n; j++) {
+    const k = Math.max(2, Math.ceil(ctrl[j].distanceTo(ctrl[j + 1]) / 0.025));
+    for (let i = 0; i < k; i++) c.push(cr.getPoint((j + i / k) / n));
+  }
+  c.push(T.p.clone());
+  const [w0, w1] = G.twist || [0, 0.25], e = [];
+  for (let i = 0, s = 0; i < c.length; i++) {
+    if (i) s += c[i].distanceTo(c[i - 1]);
+    const t = c[Math.min(i + 1, c.length - 1)].clone().sub(c[Math.max(i - 1, 0)]).normalize();
+    const v = e0.clone().lerp(prefAt(c[i]).clone().multiplyScalar(sign), smooth01((s - w0) / (w1 - w0)));
+    v.addScaledVector(t, -v.dot(t));
+    e.push(v.lengthSq() > 1e-12 ? v.normalize() : e[i - 1].clone());
+  }
+  return (laneCentres[g] = { c, e, M, e0 });
+}
+// harness wire `key` after the bundle: its lane of the branch, offset as it sits across the group
+function laneRun(key) {
+  const { c, e, M, e0 } = laneCentre(LANE_OF[key]);
+  const off = bundleRun(key).pts.at(-1).clone().sub(M).dot(e0);
+  return c.slice(1).map((p, i) => p.clone().addScaledVector(e[i + 1], off));
 }
 // a seeded "hand laid" sideways offset so parallel bench wires do not look ruler-straight
 const wobble = (seed) => { const s = Math.sin(seed * 12.9898) * 43758.5453; return (s - Math.floor(s)) - 0.5; };
@@ -713,9 +770,11 @@ const VIA = {
   // the breadboard GND wires go straight back, over the harness and along the back of the breadboard
   'dist.GND>lvl.GND': [W3(-2.82, 0, 1.98), W3(-0.8, 0, 1.98), W3(-0.45, 0.26, 1.98), W3(0.42, 0.26, 1.98), W3(0.78, 0, 1.98)],
   'dist.GND>esp.GNDin': [W3(-2.66, 0, 2.12), W3(-0.8, 0, 2.12), W3(-0.45, 0.26, 2.12), W3(0.42, 0.26, 2.12), W3(0.78, 0, 2.12)],
-  // the data wire leaves the 330Ω strip over the back edge and runs behind the GND wires to the harness
-  'res.out>rig.DIN': [W3(1.4, 0, 1.74)],
+  // the data wire leaves the 330Ω strip over the back edge, runs behind the GND wires and comes in from
+  // the right on top of the harness, where the bundle starts (SIDE_ENTRY: no run-in from the front)
+  'res.out>rig.DIN': [W3(1.4, 0, 1.74), W3(0.85, 0, 1.45)],
 };
+const SIDE_ENTRY = new Set(['res.out>rig.DIN']);
 function pickTerm(id, name, key) {
   const t = TERM[id]?.[name];
   if (!t || !Array.isArray(t)) return t || null;
@@ -723,10 +782,162 @@ function pickTerm(id, name, key) {
   return t[FAN[key] ?? 0];
 }
 
+/* ------------------------------------------------------------ wire against wire --- */
+// Two wires cannot pass through each other. Every wire is sampled ~1.2 mm apart; where two come closer
+// than their radii plus PLAY, both give way, square to their own run and away from the other (two that
+// cross right through each other: over / under, the later one on top), and the push is spread smoothly
+// along each wire, the way a wire bends when you lay another one across it. The ends stay put (in a
+// dupont housing, a lever block, on a led), a wire lying on the bench cannot go down, and the pole, the
+// rods and the foot of the rig stay clear. A few rounds settle it; only what moved is looked at again.
+const PLAY = 0.004;                                   // 0.16 mm between two wires that touch
+const STEP = 0.03, CELL = 0.11;                       // sample spacing; grid cell > largest reach
+// the rig frame as segments (a, unit direction u, length, radius): the pole and the six rods
+const RIG_BARS = [[W3(RIG.OFFSET.x, 0.9, RIG.OFFSET.z), W3(RIG.OFFSET.x, RIG.OFFSET.y - RIG.D, RIG.OFFSET.z), 0.065],
+  ...[[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]].map(d =>
+    [RIG.OFFSET.clone(), RIG.OFFSET.clone().add(W3(...d).multiplyScalar(RIG.D)), 0.045])]
+  .map(([a, b, rb]) => ({ a, u: b.clone().sub(a).normalize(), len: a.distanceTo(b), rb }));
+// height of the foot (rubber ring, conical disc, flattened dome) at distance `rad` from the pole
+const footTop = rad => (rad < 1.7 ? 0.4 + 0.544 * Math.sqrt(1 - (rad / 1.7) ** 2) : rad < 2.3 ? 0.02 + (2.3 - rad) / 0.6 * 0.38 : -Infinity);
+function clearRig(v, r) {
+  for (const { a, u, len, rb } of RIG_BARS) {
+    const wx = v.x - a.x, wy = v.y - a.y, wz = v.z - a.z, t = wx * u.x + wy * u.y + wz * u.z;
+    if (t <= 0 || t >= len) continue;
+    const ox = wx - t * u.x, oy = wy - t * u.y, oz = wz - t * u.z, d = Math.hypot(ox, oy, oz), min = rb + r + PLAY;
+    if (d < min && d > 1e-9) { const k = min / d; v.set(a.x + t * u.x + ox * k, a.y + t * u.y + oy * k, a.z + t * u.z + oz * k); }
+  }
+  const top = footTop(Math.hypot(v.x - RIG.OFFSET.x, v.z - RIG.OFFSET.z)) + r + PLAY;
+  if (v.y < top) v.y = top;
+}
+function separateWires(list) {
+  const t0 = performance.now(), v = new THREE.Vector3(), trace = [];
+  const ws = list.map(w => {
+    const L = w.curve.getLength(), n = Math.max(4, Math.ceil(L / STEP)), N = n + 1;
+    const p = new Float64Array(N * 3), mob = new Float64Array(N), act = new Uint8Array(N);
+    for (let i = 0; i < N; i++) {
+      w.curve.getPointAt(i / n, v); p[3 * i] = v.x; p[3 * i + 1] = v.y; p[3 * i + 2] = v.z;
+      const s = (i / n) * L;                          // free from `lock` on, fully after another 0.25
+      mob[i] = w.fixed ? 0 : smooth01((s - w.lock[0]) / 0.25) * smooth01((L - s - w.lock[1]) / 0.25);
+      act[i] = mob[i] > 0 ? 1 : 0;                    // to (re)check this round: all at first, later only
+    }                                                 // what moved or touched something
+    return { w, N, p, mob, act, nxt: new Uint8Array(N), r: w.r, d: new Float64Array(N * 3), pushed: false, changed: false };
+  });
+  const cellOf = x => Math.floor(x / CELL) + 512;
+  const grid = new Map(), near = [], tmp = new Float64Array(3 * Math.max(...ws.map(W => W.N)));
+  const floored = (W, i) => W.p[3 * i + 1] - floorAt(W.p[3 * i], W.p[3 * i + 2], W.r) < 1e-4;
+  const tangent = (W, i, out) => {
+    const a = 3 * Math.max(i - 1, 0), b = 3 * Math.min(i + 1, W.N - 1), p = W.p;
+    return out.set(p[b] - p[a], p[b + 1] - p[a + 1], p[b + 2] - p[a + 2]).normalize();
+  };
+  const mark = (W, i) => W.nxt.fill(1, Math.max(i - 10, 0), Math.min(i + 11, W.N));
+  const label = W => W.w.key || W.w.label || W.w.tag;
+  const ta = new THREE.Vector3(), tb = new THREE.Vector3();
+  let it = 0, worst = 0, worstAt = null;
+  for (; it < 40; it++) {
+    grid.clear();
+    ws.forEach((W, a) => { for (let i = 0; i < W.N; i++) {
+      const k = (cellOf(W.p[3 * i]) * 1024 + cellOf(W.p[3 * i + 1])) * 1024 + cellOf(W.p[3 * i + 2]);
+      const c = grid.get(k); if (c) c.push(a, i); else grid.set(k, [a, i]);
+    } });
+    worst = 0; worstAt = null;
+    ws.forEach((A, a) => {
+      A.pushed = false; if (A.w.fixed || !A.act.includes(1)) return;
+      A.d.fill(0);
+      for (let i = 0; i < A.N; i++) {
+        if (!A.act[i] || A.mob[i] === 0) continue;
+        const px = A.p[3 * i], py = A.p[3 * i + 1], pz = A.p[3 * i + 2];
+        const cx = cellOf(px), cy = cellOf(py), cz = cellOf(pz);
+        near.length = 0;                                // nearest sample of every other wire in reach
+        for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) {
+          const c = grid.get(((cx + dx) * 1024 + cy + dy) * 1024 + cz + dz); if (!c) continue;
+          for (let m = 0; m < c.length; m += 2) {
+            const b = c[m]; if (b === a) continue;
+            const B = ws[b], j = c[m + 1], qx = B.p[3 * j] - px, qy = B.p[3 * j + 1] - py, qz = B.p[3 * j + 2] - pz;
+            const d2 = qx * qx + qy * qy + qz * qz, reach = A.r + B.r + PLAY + STEP;
+            if (d2 > reach * reach || (A.w.group && A.w.group === B.w.group)) continue;
+            let f = -1; for (let q = 0; q < near.length; q += 3) if (near[q] === b) { f = q; break; }
+            if (f < 0) near.push(b, j, d2); else if (d2 < near[f + 2]) { near[f + 1] = j; near[f + 2] = d2; }
+          }
+        }
+        if (!near.length) continue;
+        tangent(A, i, ta);
+        for (let q = 0; q < near.length; q += 3) {
+          const b = near[q], B = ws[b], j = near[q + 1], P = B.p;
+          // the closest point of B (its polyline on both sides of sample j) to this point
+          let best = Infinity, qx = 0, qy = 0, qz = 0;
+          for (let h = 0; h < 2; h++) {
+            const u = h ? j : Math.max(j - 1, 0), w = h ? Math.min(j + 1, B.N - 1) : j;
+            const sx = P[3 * w] - P[3 * u], sy = P[3 * w + 1] - P[3 * u + 1], sz = P[3 * w + 2] - P[3 * u + 2];
+            const l2 = sx * sx + sy * sy + sz * sz;
+            const t = l2 > 0 ? Math.min(1, Math.max(0, ((px - P[3 * u]) * sx + (py - P[3 * u + 1]) * sy + (pz - P[3 * u + 2]) * sz) / l2)) : 0;
+            const ex = P[3 * u] + t * sx, ey = P[3 * u + 1] + t * sy, ez = P[3 * u + 2] + t * sz;
+            const d2 = (px - ex) ** 2 + (py - ey) ** 2 + (pz - ez) ** 2;
+            if (d2 < best) { best = d2; qx = ex; qy = ey; qz = ez; }
+          }
+          const dist = Math.sqrt(best), pen = A.r + B.r + PLAY - dist; if (pen <= 0) continue;
+          mark(A, i); mark(B, j);                       // both have to be looked at again next round
+          // give way square to the own wire, away from B; where the two cross right through each other,
+          // over / under along their common normal (the later wire on top)
+          const dx = px - qx, dy = py - qy, dz = pz - qz, k = dx * ta.x + dy * ta.y + dz * ta.z;
+          let nx = dx - k * ta.x, ny = dy - k * ta.y, nz = dz - k * ta.z;
+          const l = Math.hypot(nx, ny, nz);
+          if (l > 0.25 * dist && l > 1e-7) { nx /= l; ny /= l; nz /= l; } else {
+            v.copy(ta).cross(tangent(B, j, tb));
+            if (v.lengthSq() < 1e-4) v.copy(ta).cross(Math.abs(ta.y) < 0.9 ? up : W3(1, 0, 0));
+            v.normalize();
+            if (v.y < 0 || (v.y === 0 && (v.x < 0 || (v.x === 0 && v.z < 0)))) v.negate();
+            if (a < b) v.negate();
+            nx = v.x; ny = v.y; nz = v.z;
+          }
+          let ma = A.mob[i], mb = B.mob[j];             // who gives way; a wire on the bench cannot go down
+          if (ny < -0.3 && floored(A, i)) ma = 0;
+          if (ny > 0.3 && floored(B, j)) mb = 0;
+          if (ma + mb === 0) continue;
+          if (pen > worst) { worst = pen; worstAt = [label(A), label(B), +px.toFixed(3), +py.toFixed(3), +pz.toFixed(3)]; }
+          const f = pen * ma / (ma + mb);
+          A.d[3 * i] += nx * f; A.d[3 * i + 1] += ny * f; A.d[3 * i + 2] += nz * f; A.pushed = true;
+        }
+      }
+    });
+    trace.push(+(worst * 40).toFixed(2));
+    if (worst < 0.002) break;                          // every gap at least 0.08 mm
+    for (const A of ws) if (A.pushed) {
+      const d = A.d, N = A.N;
+      for (let pass = 0; pass < 8; pass++) {           // spread the push along the wire (binomial blur)
+        for (let i = 0; i < N; i++) {
+          const a = 3 * Math.max(i - 1, 0), b = 3 * Math.min(i + 1, N - 1);
+          for (let c = 0; c < 3; c++) tmp[3 * i + c] = 0.25 * d[a + c] + 0.5 * d[3 * i + c] + 0.25 * d[b + c];
+        }
+        d.set(tmp.subarray(0, 3 * N));
+      }
+      for (let i = 0; i < N; i++) {
+        const m = A.mob[i]; if (m === 0 || Math.abs(d[3 * i]) + Math.abs(d[3 * i + 1]) + Math.abs(d[3 * i + 2]) < 1e-9) continue;
+        v.set(A.p[3 * i] + d[3 * i] * m, A.p[3 * i + 1] + d[3 * i + 1] * m, A.p[3 * i + 2] + d[3 * i + 2] * m);
+        v.y = Math.max(v.y, floorAt(v.x, v.z, A.r));
+        clearRig(v, A.r);
+        A.p[3 * i] = v.x; A.p[3 * i + 1] = v.y; A.p[3 * i + 2] = v.z;
+        A.nxt[i] = 1;
+      }
+      A.changed = true;
+    }
+    for (const W of ws) { W.act.set(W.nxt); W.nxt.fill(0); }
+  }
+  for (const W of ws) if (W.changed) {
+    const pts = []; for (let i = 0; i < W.N; i++) pts.push(W3(W.p[3 * i], W.p[3 * i + 1], W.p[3 * i + 2]));
+    W.w.curve = new OnBench(new THREE.CatmullRomCurve3(pts, false, 'centripetal'), W.r);
+  }
+  return { rounds: it + 1, worst, worstAt, trace, ms: +(performance.now() - t0).toFixed(1), samples: ws.reduce((s, W) => s + W.N, 0),
+    moved: ws.filter(W => W.changed).map(label) };
+}
+
 const markerGeo = new THREE.SphereGeometry(0.026, 10, 8);
+let wireRelax = null;                                 // what separateWires did (for ?debug / the smoke test)
 function buildWires() {
   const decorBlack = new THREE.MeshStandardMaterial({ color: 0x111215, roughness: 0.5 });
   const pinMetal = new THREE.MeshStandardMaterial({ color: 0xcfd3d8, metalness: 1, roughness: 0.3 });
+  // how far from each end a wire is held: through its dupont housing, out of a lever block / screw
+  // terminal, onto a led — beyond that it may give way to other wires
+  const lockLen = t => (t.hole ? 0.3 : (t.lead ?? 0.14) + 0.01);
+  const runs = [];
   CONNECTIONS.forEach((c, n) => {
     const [pa, ta, pb, tb, cat, , flag] = c;
     if (flag === 'bb') return;                                    // same breadboard strip: nothing to draw
@@ -734,12 +945,12 @@ function buildWires() {
     const A = pickTerm(pa, ta, key), B = pickTerm(pb, tb, key);
     if (!A || !B) { console.warn('missing terminal', pa, ta, pb, tb); return; }
     const W = WIRE[cat];
-    let pts, m, r = W.r, mat = null;
+    let pts, r = W.r, mat = null;
     if (cat === 'bt') {
       // the wireless Bluetooth link: a dashed arc (no wire) so it reads as "over the air"
       const mid = A.p.clone().lerp(B.p, 0.5); mid.y += 1.6;
       const curve = new THREE.QuadraticBezierCurve3(A.p.clone(), mid, B.p.clone());
-      m = new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(60)),
+      const m = new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(60)),
         new THREE.LineDashedMaterial({ color: W.color, transparent: true, opacity: 0.85, dashSize: 0.12, gapSize: 0.1 }));
       m.computeLineDistances();
       scene.add(m);
@@ -752,25 +963,60 @@ function buildWires() {
       pts = legRoute(A, B); r = 0.009;
       mat = new THREE.MeshStandardMaterial({ color: 0xd4d8de, metalness: 1, roughness: 0.3, emissive: W.color, emissiveIntensity: 0 });
     } else if (HARNESS_SLOT[key]) {
-      const [sn, sb] = HARNESS_SLOT[key];
-      const exit = key.endsWith('INJ_D') ? SPINE_EXIT.D : (key.includes('INJ_') ? SPINE_EXIT.LB : SPINE_EXIT.MAIN);
-      const spine = spineFor(exit);
-      const segs = Math.max(24, Math.round(spine.getLength() * 6));
-      const sp = offsetCurvePoints(spine, sn, sb, segs);
+      const sp = bundleRun(key).pts;
       const via = (VIA[key] || []).map(v => onBench(v, r, v.y));
       const lead = terminalRun(A, r, flatDir(A.p, via[0] ?? sp[0]));
-      const back = sp[0].clone().add(new THREE.Vector3().subVectors(sp[0], sp[1]).setY(0).normalize().multiplyScalar(0.55));
-      const br = branchFor(key, cat === 'pwr' ? -1 : 1);
-      const end = [B.p.clone().addScaledVector(B.d, B.lead ?? 0.16).add(br.off), B.p.clone().add(br.off)];
-      pts = [...lead, ...via, back, ...sp, ...br.pts, ...end];
+      // run in from the front, square onto the bundle start (or, SIDE_ENTRY, straight onto it)
+      const back = SIDE_ENTRY.has(key) ? []
+        : [sp[0].clone().add(new THREE.Vector3().subVectors(sp[0], sp[1]).setY(0).normalize().multiplyScalar(0.55))];
+      pts = [...lead, ...via, ...back, ...sp, ...laneRun(key)];
     } else if (ab) {
       pts = jumperRoute(A, B);
     } else {
       pts = benchRoute(A, B, r, VIA[key], n + 1);
     }
-    const curve = new OnBench(new THREE.CatmullRomCurve3(pts, false, 'centripetal'), r);
+    runs.push({ c, key, cat, A, B, r, mat, curve: new OnBench(new THREE.CatmullRomCurve3(pts, false, 'centripetal'), r),
+      lock: [lockLen(A), lockLen(B)], fixed: !!mat });
+  });
+  // decorative links that are not in CONNECTIONS (fixed: the wires give way to them)
+  const decos = [];
+  const deco = (pts, col, r, tag, label) => decos.push({ curve: new OnBench(new THREE.CatmullRomCurve3(pts, false, 'centripetal'), r),
+    r, col, tag, label, fixed: true, group: tag === 'mains' ? 'mains' : null, lock: [0, 0] });
+  // the 74AHCT125's inputs may not float (datasheet): 1OE to GND with a short jumper (buffer 1 always on);
+  // the unused ones with pre-formed wire links flat on the board (printed column numbers): on the back
+  // half 2OE + 2A to GND (col 44 — buffer 2 on, its output 2Y low and unused), on the front half 3OE,
+  // 3A, 4OE, 4A to 5V (col 50 — buffers 3 and 4 off)
+  const hw0 = (col, row) => bb.group.localToWorld(bb.hole(col - 1, row));
+  const oe = hw0(50, 'g'), g7 = hw0(44, 'g');
+  deco([oe, oe.clone().add(W3(0, 0.08, 0)), oe.clone().lerp(g7, 0.5).add(W3(0, 0.12, 0)), g7.clone().add(W3(0, 0.08, 0)), g7],
+    0x1d1e22, 0.016, 'jumper', '1OE-GND');
+  const link = (c1, r1, c2, r2, col, label) => {
+    const a = hw0(c1, r1), b = hw0(c2, r2), h = W3(0, 0.045, 0);   // the bridge 1.8 mm above the board
+    deco(Math.abs(c1 - c2) < 2 ? [a, a.clone().add(h), a.clone().lerp(b, 0.5).add(h).add(W3(0, 0.008, 0)), b.clone().add(h), b]
+      : [a, a.clone().add(h), a.clone().lerp(b, 0.25).add(h), a.clone().lerp(b, 0.75).add(h), b.clone().add(h), b],
+    col, 0.016, 'jumper', label);
+  };
+  link(46, 'h', 44, 'h', 0x1d1e22, '2A-GND'); link(47, 'i', 44, 'i', 0x1d1e22, '2OE-GND');
+  link(46, 'a', 50, 'a', 0xc8261e, '3OE-5V'); link(45, 'c', 46, 'c', 0xc8261e, '3A-3OE');
+  link(48, 'b', 50, 'b', 0xc8261e, '4A-5V'); link(49, 'd', 50, 'd', 0xc8261e, '4OE-5V');
+  // the mains cable: three cores from the PSU screws into the sheath, off the back of the bench
+  const cores = [['L', 0x7a4a26], ['N', 0x2a5bd7], ['PE', 0x7fbf3a]];
+  const join = toWorld(hw.psu.group, { p: new THREE.Vector3(P.mm(70), P.mm(10), P.mm(-60)), d: up });
+  cores.forEach(([k, col], i) => {
+    const s = toWorld(hw.psu.group, hw.psu.screws[k]);
+    deco([s.p, s.p.clone().addScaledVector(s.d, 0.18), onBench(s.p.clone().add(W3(0.4, 0, -0.25 - i * 0.05)), 0.03), join.p.clone().add(W3(0, 0.03, 0))], col, 0.028, 'mains');
+  });
+  deco([join.p, onBench(W3(-5.4, 0, -0.6), 0.09), onBench(W3(-6.2, 0, -6.5), 0.09), W3(-6.4, 0.095, -10.85),
+    W3(-6.42, 0.095, -11.0), W3(-6.43, 0.088, -11.036), W3(-6.44, 0.067, -11.067), W3(-6.45, 0.036, -11.088),
+    W3(-6.46, 0, -11.095), W3(-6.5, -0.6, -11.25), W3(-6.6, -6, -11.3), W3(-6.7, -16, -11.2),
+    W3(-6.6, -22.4, -10.4), W3(-5.0, -22.42, -8.6)], 0x2b2d31, 0.085, 'mains');
+
+  wireRelax = separateWires([...runs, ...decos]);
+
+  for (const w of runs) {
+    const { c, key, cat, A, B, r, mat, curve } = w, W = WIRE[cat];
     const geo = new THREE.TubeGeometry(curve, Math.max(24, Math.round(curve.getLength() * 28)), r, 8, false);   // ~1.4 mm segments
-    m = new THREE.Mesh(geo, mat || new THREE.MeshStandardMaterial({ color: W.color, roughness: 0.42, metalness: 0,
+    const m = new THREE.Mesh(geo, mat || new THREE.MeshStandardMaterial({ color: W.color, roughness: 0.42, metalness: 0,
       emissive: W.color, emissiveIntensity: 0 }));
     m.castShadow = true; m.receiveShadow = true;
     scene.add(m);
@@ -783,35 +1029,35 @@ function buildWires() {
       h.userData.dupont = pin.userData.dupont = key;
     }
     wires.push(mkWire(m, c, curve, cat, !mat));
-  });
-  // decorative links that are not in CONNECTIONS: the 1OE -> GND jumper and the mains cable
-  const deco = (pts, col, r) => {
-    const curve = new OnBench(new THREE.CatmullRomCurve3(pts, false, 'centripetal'), r);
-    const t = new THREE.Mesh(new THREE.TubeGeometry(curve, Math.max(48, Math.round(curve.getLength() * 28)), r, 8, false),
-      new THREE.MeshStandardMaterial({ color: col, roughness: 0.45 }));
-    t.castShadow = true; t.userData.deco = true; scene.add(t); return t;
-  };
-  const oe = bb.group.localToWorld(bb.hole(49, 'g')), g7 = bb.group.localToWorld(bb.hole(43, 'g'));
-  deco([oe, oe.clone().add(W3(0, 0.08, 0)), oe.clone().lerp(g7, 0.5).add(W3(0, 0.12, 0)), g7.clone().add(W3(0, 0.08, 0)), g7], 0x1d1e22, 0.016)
-    .userData.deco = 'jumper';
-  const sheath = [];
-  const cores = [['L', 0x7a4a26], ['N', 0x2a5bd7], ['PE', 0x7fbf3a]];
-  const join = toWorld(hw.psu.group, { p: new THREE.Vector3(P.mm(70), P.mm(10), P.mm(-60)), d: up });
-  cores.forEach(([k, col], i) => {
-    const s = toWorld(hw.psu.group, hw.psu.screws[k]);
-    deco([s.p, s.p.clone().addScaledVector(s.d, 0.18), onBench(s.p.clone().add(W3(0.4, 0, -0.25 - i * 0.05)), 0.03), join.p.clone().add(W3(0, 0.03, 0))], col, 0.028);
-  });
-  sheath.push(join.p, onBench(W3(-5.4, 0, -0.6), 0.09), onBench(W3(-6.2, 0, -6.5), 0.09), W3(-6.4, 0.095, -10.85),
-    W3(-6.42, 0.095, -11.0), W3(-6.43, 0.088, -11.036), W3(-6.44, 0.067, -11.067), W3(-6.45, 0.036, -11.088),
-    W3(-6.46, 0, -11.095), W3(-6.5, -0.6, -11.25), W3(-6.6, -6, -11.3), W3(-6.7, -16, -11.2),
-    W3(-6.6, -22.4, -10.4), W3(-5.0, -22.42, -8.6));
-  deco(sheath, 0x2b2d31, 0.085);
-  // cable ties around the pole + harness, and around the D-C rod + harness
-  const tie = (y, cx, cz, rx, rz) => {
-    const t = new THREE.Mesh(new THREE.TorusGeometry(rx, 0.014, 6, 40), new THREE.MeshStandardMaterial({ color: 0x0f1012, roughness: 0.6 }));
+  }
+  for (const d of decos) {
+    const t = new THREE.Mesh(new THREE.TubeGeometry(d.curve, Math.max(48, Math.round(d.curve.getLength() * 28)), d.r, 8, false),
+      new THREE.MeshStandardMaterial({ color: d.col, roughness: 0.45 }));
+    t.castShadow = true; t.userData.deco = d.tag; if (d.label) t.userData.label = d.label; scene.add(t);
+  }
+  // cable ties around the pole + harness (twice) and around the D-C rod + harness, pulled round
+  // whatever runs past at that height: an ellipse just outside the bar and the outermost wires
+  const tie = y => {
+    const TT = 0.014, c = [[RIG.OFFSET.x, RIG.OFFSET.z, y < RIG.OFFSET.y - RIG.D ? 0.065 : 0.045]];   // the bar
+    const q = new THREE.Vector3(), prev = new THREE.Vector3();
+    for (const w of runs) if (HARNESS_SLOT[w.key]) {
+      const N = Math.ceil(w.curve.getLength() / 0.01);
+      w.curve.getPointAt(0, prev);
+      for (let i = 1; i <= N; i++, prev.copy(q)) {
+        w.curve.getPointAt(i / N, q);
+        if ((prev.y - y) * (q.y - y) <= 0 && Math.hypot(q.x - RIG.OFFSET.x, q.z - RIG.OFFSET.z) < 0.6) { c.push([q.x, q.z, w.r]); break; }
+      }
+    }
+    const x0 = Math.min(...c.map(([x, , r]) => x - r)), x1 = Math.max(...c.map(([x, , r]) => x + r));
+    const z0 = Math.min(...c.map(([, z, r]) => z - r)), z1 = Math.max(...c.map(([, z, r]) => z + r));
+    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, hw = (x1 - x0) / 2 + TT, hd = (z1 - z0) / 2 + TT;
+    const k = Math.max(...c.map(([x, z, r]) => Math.hypot((Math.abs(x - cx) + r + TT) / hw, (Math.abs(z - cz) + r + TT) / hd)));
+    const rx = hw * k, rz = hd * k;
+    const t = new THREE.Mesh(new THREE.TorusGeometry(rx, TT, 6, 48), new THREE.MeshStandardMaterial({ color: 0x0f1012, roughness: 0.6 }));
     t.rotation.x = Math.PI / 2; t.position.set(cx, y, cz); t.scale.set(1, rz / rx, 1); scene.add(t);
+    t.userData.tie = { y, cx, cz, rx, rz, r: TT };
   };
-  tie(1.45, 0.083, -4.117, 0.26, 0.187); tie(1.85, 0.083, -4.117, 0.26, 0.187); tie(5.75, 0.04, -4.14, 0.17, 0.27);
+  tie(1.45); tie(1.85); tie(5.75);
 }
 function mkWire(mesh, conn, curve, type, flow = true) {
   const markers = [];                                  // (a bare capacitor leg is too short for flow markers)
@@ -1163,6 +1409,8 @@ for (const id of Object.keys(INFO)) {
   d.onclick = () => select(id, false);
   elLabels.appendChild(d); labelEls[id] = d;
 }
+// a wheel turn over a label zooms like over the scene itself (the labels lie on top of the canvas)
+elLabels.addEventListener('wheel', e => { e.preventDefault(); canvas.dispatchEvent(new WheelEvent('wheel', e)); }, { passive: false });
 
 function wiringRowsFor(id) {
   const rows = [];
@@ -1495,7 +1743,7 @@ function tick() {
 if (new URLSearchParams(location.search).has('debug')) {
   window.__bench = { stage, camera, controls, select, clearSelect, setPower, doScramble, doTwist, doUndo, doReset,
     pressPlane, setDir, clearDir, moveCell, flyTo, focusPart, puzzle, wires, TERM, CONNECTIONS,
-    bbBox: BB_BOX, bbGroup: bb.group, PART_GROUP, MAT, BENCH, MAT_TOP, RIG,      // for tools/bench-audit.mjs
+    bbBox: BB_BOX, bbGroup: bb.group, PART_GROUP, MAT, BENCH, MAT_TOP, RIG, get wireRelax() { return wireRelax; },   // for tools/bench-audit.mjs
     get sel() { return sel; }, get colorAnim() { return colorAnim; }, get moves() { return moves; },
     get selected() { return selected; }, get chainOn() { return chainOn; },
     finishAnimations() { if (flight) flight.t = flight.ms; if (colorAnim) colorAnim.t = colorAnim.dur; } };

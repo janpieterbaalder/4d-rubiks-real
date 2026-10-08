@@ -8,7 +8,7 @@
    ========================================================================== */
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import * as TX from './textures.js?v=12';   // same URL as hardware.js imports (one module instance)
+import * as TX from './textures.js?v=13';   // same URL as hardware.js imports (one module instance)
 
 export const mm = v => v / 40;
 const V = (x, y, z) => new THREE.Vector3(x, y, z);

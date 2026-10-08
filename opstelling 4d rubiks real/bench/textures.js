@@ -246,13 +246,18 @@ export const wroomTexture = () => memo('wroom', () => labelCanvas(512, 512, '#b9
   g.fillText('CE', w * 0.3, h * 0.78); g.strokeStyle = '#4c5159'; g.lineWidth = 4;
   g.strokeRect(w * 0.08, h * 0.08, w * 0.84, h * 0.84);
 }));
-// DIP top: notch at the right (+x) edge, pin-1 dimple at the back-right (canvas top-right)
+// DIP top: notch at the right (+x) edge, pin-1 dimple at the back-right (canvas top-right). A real DIP
+// reads upright with its notch on the LEFT, so with the notch at the right the marking is upside down
+// (it reads from the back of the board) — otherwise the picture invites putting the chip in rotated.
 export const chipTexture = (text, sub = '') => memo('chip:' + text, () => labelCanvas(512, 160, '#17181b', (g, w, h) => {
+  g.save(); g.translate(w, h); g.rotate(Math.PI);                         // (x, y) -> (w - x, h - y)
   g.fillStyle = '#9da3ad'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = 'bold 46px system-ui, sans-serif';
-  g.fillText(text, w * 0.47, h * 0.44); if (sub) { g.font = '28px system-ui, sans-serif'; g.fillText(sub, w * 0.47, h * 0.76); }
-  g.fillStyle = '#0c0d0f';
-  g.beginPath(); g.arc(w, h / 2, 20, 0, Math.PI * 2); g.fill();          // notch
-  g.beginPath(); g.arc(w - 40, 30, 11, 0, Math.PI * 2); g.fill();        // pin-1 dimple
+  g.fillText(text, w * 0.53, h * 0.44); if (sub) { g.font = '28px system-ui, sans-serif'; g.fillText(sub, w * 0.53, h * 0.76); }
+  g.restore();
+  g.fillStyle = '#060607'; g.strokeStyle = '#4a4e55'; g.lineWidth = 4;   // dark hollow with a lit rim
+  g.beginPath(); g.arc(w, h / 2, 22, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.arc(w, h / 2, 22, Math.PI / 2, Math.PI * 1.5); g.stroke();   // notch
+  g.beginPath(); g.arc(w - 40, 30, 12, 0, Math.PI * 2); g.fill(); g.stroke();   // pin-1 dimple
 }));
 export const psuLabelTexture = () => memo('psulabel', () => labelCanvas(1024, 320, '#d8dce2', (g, w, h) => {
   g.fillStyle = '#1d2128'; g.textAlign = 'left';

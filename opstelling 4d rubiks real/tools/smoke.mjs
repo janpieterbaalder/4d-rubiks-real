@@ -22,7 +22,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { geometryAudit, breadboardNets } from './bench-audit.mjs';
+import { geometryAudit, wireOverlaps, breadboardNets } from './bench-audit.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const shotIdx = process.argv.indexOf('--shot');
@@ -89,22 +89,34 @@ try {
   // top or the rig frame — see tools/bench-audit.mjs
   const hits = await page.evaluate(geometryAudit);
   ok('geen draad door onderdelen, breadboard, mat, werkbank of rig-frame', hits.length === 0, hits.slice(0, 3).join(' | '));
+  const crossings = await page.evaluate(wireOverlaps);
+  ok('geen draad door een andere draad, draadbrug of kabelbinder', crossings.length === 0, crossings.slice(0, 3).join(' | '));
   // electrical: every pin / leg / wire end in the right breadboard strip (printed column numbers),
   // and nothing else shares a strip
   const EXPECT = {
     'achter-20': ['ESP32 5V', 'draad dist.5V>esp.5Vin'],
     'achter-24': ['ESP32 IO13', 'draad esp.D13>lvl.in'],
     'achter-25': ['ESP32 GND', 'draad dist.GND>esp.GNDin'],
-    'achter-44': ['74AHCT125 7 GND', 'draad dist.GND>lvl.GND', 'jumper 1OE-GND'],
+    'achter-44': ['74AHCT125 7 GND', 'draad dist.GND>lvl.GND', 'jumper 1OE-GND', 'jumper 2A-GND', 'jumper 2OE-GND'],
+    'achter-46': ['74AHCT125 5 2A', 'jumper 2A-GND'],
+    'achter-47': ['74AHCT125 4 2OE', 'jumper 2OE-GND'],
     'achter-48': ['74AHCT125 3 1Y', '330Ω poot 1'],
     'achter-49': ['74AHCT125 2 1A', 'draad esp.D13>lvl.in'],
     'achter-50': ['74AHCT125 1 1OE', 'jumper 1OE-GND'],
-    'voor-50': ['74AHCT125 14 VCC', 'draad dist.5V>lvl.VCC'],
+    'voor-45': ['74AHCT125 9 3A', 'jumper 3A-3OE'],
+    'voor-46': ['74AHCT125 10 3OE', 'jumper 3OE-5V', 'jumper 3A-3OE'],
+    'voor-48': ['74AHCT125 12 4A', 'jumper 4A-5V'],
+    'voor-49': ['74AHCT125 13 4OE', 'jumper 4OE-5V'],
+    'voor-50': ['74AHCT125 14 VCC', 'draad dist.5V>lvl.VCC', 'jumper 3OE-5V', 'jumper 4A-5V', 'jumper 4OE-5V'],
     'achter-52': ['330Ω poot 2', 'draad res.out>rig.DIN'],
   };
   const nets = await page.evaluate(breadboardNets);
   const shared = Object.entries(nets.strips).filter(([, m]) => m.length > 1);
   const same = (a, b) => [...a].sort().join('|') === [...b].sort().join('|');
+  // datasheet: no 74AHCT125 input may float — every input shares its strip with a wire, jumper or link
+  const floating = ['1 1OE', '2 1A', '4 2OE', '5 2A', '9 3A', '10 3OE', '12 4A', '13 4OE'].map(n => '74AHCT125 ' + n)
+    .filter(pin => !Object.values(nets.strips).some(m => m.includes(pin) && m.length > 1));
+  ok('levelshifter: geen zwevende ingang (1OE…4A vast aan GND, 5V of de data)', floating.length === 0, floating.join(', '));
   ok('breadboard: elke pin, poot en draad in de juiste strook (ESP32-DevKitC V4, 74AHCT125)',
     nets.errors.length === 0 && shared.length === Object.keys(EXPECT).length && shared.every(([k, m]) => EXPECT[k] && same(m, EXPECT[k])),
     [...nets.errors, ...shared.filter(([k, m]) => !EXPECT[k] || !same(m, EXPECT[k])).map(([k, m]) => `${k}: ${m.join(' + ')}`)].slice(0, 3).join(' | '));
@@ -133,7 +145,35 @@ try {
   await page.click('#acc-parts .acc-b button:has-text("Levelshifter")'); await settle();
   ok('onderdeel kiezen opent het infopaneel', !(await page.getAttribute('#info', 'class')).includes('hidden'));
   ok('infopaneel toont de aansluitingen', (await page.textContent('#info-body')).includes('Aansluiting'));
+  // scrolling panels: the × stays in reach, the menu scrolls instead of squeezing (and clipping) its sections
+  const closeInReach = (box, btn) => page.evaluate(([box, btn]) => {
+    const B = document.getElementById(box); B.scrollTop = B.scrollHeight;
+    const c = document.getElementById(btn).getBoundingClientRect(), b = B.getBoundingClientRect();
+    return B.scrollTop > 0 && c.top >= b.top - 0.5 && c.bottom <= b.bottom + 0.5
+      && document.elementFromPoint((c.left + c.right) / 2, (c.top + c.bottom) / 2)?.id === btn;
+  }, [box, btn]);
+  ok('infopaneel: × blijft in beeld en klikbaar na scrollen', await closeInReach('info', 'info-close'));
   await page.click('#info-close');
+  ok('menu: alle secties open → het menu scrolt, geen sectie samengeperst of afgeknipt', await B(() => {
+    const L = document.getElementById('left'), heads = [...L.querySelectorAll(':scope > .acc > .acc-h')];
+    const was = heads.map(h => h.parentElement.classList.contains('open'));
+    heads.forEach((h, i) => { if (!was[i]) h.click(); });
+    const whole = [...L.querySelectorAll(':scope > .acc')].every(a => a.scrollHeight <= a.clientHeight + 1);
+    L.scrollTop = L.scrollHeight;
+    const last = [...L.querySelectorAll('button, .leg, label')].pop().getBoundingClientRect();
+    const reach = last.bottom <= L.getBoundingClientRect().bottom + 0.5 && last.bottom <= innerHeight;
+    heads.forEach((h, i) => { if (!was[i]) h.click(); }); L.scrollTop = 0;
+    return whole && reach;
+  }));
+  const dist = () => B(() => window.__bench.camera.position.distanceTo(window.__bench.controls.target));
+  const d0 = await dist();
+  await B(() => document.querySelector('#labels .lbl').dispatchEvent(new WheelEvent('wheel',
+    { deltaY: 400, bubbles: true, cancelable: true, clientX: innerWidth / 2, clientY: innerHeight / 2 })));
+  await page.waitForTimeout(500);
+  ok('scrollwiel boven een label zoomt de camera (zoals boven de scène)', Math.abs((await dist()) - d0) > 1e-3);
+  await page.click('#about-tab');
+  ok('Over-paneel: × blijft in beeld en klikbaar na scrollen', await closeInReach('about', 'about-close'));
+  await page.click('#about-close');
 
   // view toggles + quality + power
   await page.click('#acc-view .acc-h');
@@ -183,15 +223,28 @@ try {
     await mp.tap('#menu button:has-text("Levelshifter")'); await msettle();
     ok(`${tag} onderdeel kiezen sluit het menu en toont info binnen beeld`,
       !(await shown(mp, '#left')) && !(await mp.getAttribute('#info', 'class')).includes('hidden') && await inView(mp, '#info'));
-    await mp.tap('#info-close');
-    await mp.tap('#md-pad');
-    ok(`${tag} Besturing toont de controller volledig binnen beeld`, await shown(mp, '#ps3') && await inView(mp, '#ps3 button'));
+    ok(`${tag} info-sheet: × blijft in beeld na scrollen`, await mp.evaluate(() => {
+      const I = document.getElementById('info'); I.scrollTop = I.scrollHeight;
+      const c = document.getElementById('info-close').getBoundingClientRect();
+      return I.scrollTop > 0 && c.top >= I.getBoundingClientRect().top - 0.5
+        && document.elementFromPoint((c.left + c.right) / 2, (c.top + c.bottom) / 2)?.id === 'info-close';
+    }));
+    await mp.tap('#md-pad');          // straight from the info sheet: it closes, nothing lies over the controller
+    ok(`${tag} Besturing toont de controller volledig binnen beeld, niet onder het info-sheet`, await shown(mp, '#ps3')
+      && await inView(mp, '#ps3 button') && (await mp.getAttribute('#info', 'class')).includes('hidden')
+      && await mp.evaluate(() => [...document.querySelectorAll('#ps3 button')].every(b => {   // nothing else on top
+        const r = b.getBoundingClientRect(); return document.elementFromPoint((r.left + r.right) / 2, (r.top + r.bottom) / 2)?.closest('#ps3');
+      })));
     await mp.tap('#ps3 [data-mv="E"]'); await msettle();
     const mBefore = await MB(() => JSON.stringify(window.__bench.puzzle.pieces.map(p => p.cur)));
     await mp.tap('#ps3 [data-dir="1"]'); await mp.tap('#ps3 [data-plane="0"]'); await msettle();
     ok(`${tag} draaien met alleen tikken (▶ + Z)`, await MB(() => JSON.stringify(window.__bench.puzzle.pieces.map(p => p.cur))) !== mBefore);
     await mp.tap('#ps3 [data-act="undo"]'); await msettle();
     ok(`${tag} undo via tik`, await MB(() => JSON.stringify(window.__bench.puzzle.pieces.map(p => p.cur))) === mBefore);
+    await MB(() => window.__bench.select('esp')); await msettle();
+    ok(`${tag} onderdeel kiezen met de controller open: één sheet tegelijk`, !(await shown(mp, '#ps3'))
+      && !(await mp.getAttribute('#info', 'class')).includes('hidden'));
+    await mp.tap('#info-close');
     await mp.tap('#md-power');
     ok(`${tag} Aan/uit in het dock`, (await mp.textContent('#power-state b')) === 'UIT');
     await mp.tap('#md-power');
