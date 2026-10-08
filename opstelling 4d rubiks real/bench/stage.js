@@ -20,7 +20,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import * as TX from './textures.js?v=11';   // same URL as hardware.js imports (one module instance)
+import * as TX from './textures.js?v=12';   // same URL as hardware.js imports (one module instance)
 
 // workbench + room dimensions (scene units, 1 u = 4 cm)
 export const BENCH = { W: 44, D: 21, Z0: -0.5, THICK: 1.0, HEIGHT: 22.5 };

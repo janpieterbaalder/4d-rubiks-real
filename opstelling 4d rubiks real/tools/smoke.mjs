@@ -2,6 +2,8 @@
    tools/smoke.mjs — headless browser smoke test for the 3D workbench (hardware.html).
    Starts a tiny static server, opens the page in headless Chromium (Playwright) and checks:
      • the scene starts without a single console error / page error,
+     • every row of the wiring table is drawn, the prototype layout (330Ω on the breadboard, 1000µF
+       in the distribution blocks, harness to led #0) is in place and no wire runs through the breadboard,
      • the canvas really renders (not one flat colour),
      • keyboard play works: scramble, move, twist, undo (via the real key bindings),
      • clicking a part opens its info + wiring table, the led-chain view and the quality and
@@ -67,8 +69,28 @@ try {
     await page.waitForFunction(() => !window.__bench.colorAnim, null, { timeout: 60000 });
     await page.waitForTimeout(150);
   };
-  ok('alle 20 verbindingen getekend', await B(() => window.__bench.wires.length) === 20);
+  // every row of the wiring table is drawn (a row marked 'bb' shares a breadboard strip: no wire)
+  const [nWires, nRows] = await B(() => [window.__bench.wires.length, window.__bench.CONNECTIONS.filter(c => c[6] !== 'bb').length]);
+  ok(`alle ${nRows} verbindingen getekend`, nWires === nRows, `${nWires} getekend`);
   ok('power-injectie op strip #54/#108/#162 (L/D/B)', await B(() => ['INJ_L', 'INJ_D', 'INJ_B'].every(k => window.__bench.TERM.rig[k])));
+  ok('prototype: 330Ω op het breadboard, 1000µF in de verdeelblokken', await B(() => {
+    const T = window.__bench.TERM;
+    return T.res.in.hole && T.res.out.hole && T.cap['+'].leg && T.cap['-'].leg;
+  }));
+  ok('kabelboom eindigt op led #0 (DIN, 5V, GND naast elkaar)', await B(() => {
+    const r = window.__bench.TERM.rig, ps = [r.DIN, r['5V'], r.GND].map(t => t && t.p);
+    return ps.every(Boolean) && ps[0].distanceTo(ps[1]) < 0.1 && ps[1].distanceTo(ps[2]) < 0.1;
+  }));
+  ok('geen draad loopt door het breadboard', await B(() => {
+    const b = window.__bench.bbBox;
+    return window.__bench.wires.filter(w => w.type !== 'bt').every(w => {
+      for (let i = 0; i <= 400; i++) {
+        const p = w.curve.getPoint(i / 400);
+        if (p.x > b.min.x && p.x < b.max.x && p.z > b.min.z && p.z < b.max.z && p.y < b.max.y - 1e-3) return false;
+      }
+      return true;
+    });
+  }));
 
   // the canvas must show a real picture, not a flat clear colour
   const png = await page.locator('#scene').screenshot();

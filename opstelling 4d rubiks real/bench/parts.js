@@ -8,7 +8,7 @@
    ========================================================================== */
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import * as TX from './textures.js?v=11';   // same URL as hardware.js imports (one module instance)
+import * as TX from './textures.js?v=12';   // same URL as hardware.js imports (one module instance)
 
 export const mm = v => v / 40;
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -111,8 +111,8 @@ export function buildDIP14(text = '74AHCT125N') {
 }
 
 /* ------------------------------------------------------------------ lever splice block
-   A generic 8-way lever connector (clear housing, copper bus, orange levers) used as the
-   5V distribution point after the fuse and as the GND star point at the supply.
+   A generic 8-way lever connector (clear housing, copper bus, coloured levers); two of them
+   form the 5V / GND distribution (buildDistribution).
    Local frame: centre on its base, entries along x, wire openings facing −z. */
 export function buildLeverBlock(n = 8, lever = 0xe58a2c) {
   const g = new THREE.Group();
@@ -159,18 +159,10 @@ export function buildPSU() {
   glow(cyl(mm(1.4), mm(1.4), mm(1.2), new THREE.MeshStandardMaterial({ color: 0x0a3a14, emissive: 0x29ff6a, emissiveIntensity: 2.6 }),
     tbX - mm(2), H + mm(0.4), mm(38), g, 12));
   cyl(mm(2.2), mm(2.2), mm(1.6), std(0x2f5fd0, 0.4), tbX - mm(8), H + mm(0.6), mm(37), g, 16);
-  // GND star point: a lever block on the bench right next to the −V screws
-  const star = buildLeverBlock(8, 0x3a3d44);
-  star.group.position.set(L / 2 + mm(28), 0, mm(-12)); star.group.rotation.y = -Math.PI / 2;
-  g.add(star.group);
-  star.group.updateMatrix();
-  const toG = e => ({ p: e.p.clone().applyMatrix4(star.group.matrix), d: e.d.clone().applyEuler(star.group.rotation) });
-  const starEntries = star.entries.map(toG);
   const screw = i => ({ p: V(tbX + mm(6.4), mm(10), screwZ[i]), d: V(1, 0.1, 0).normalize() });
   return {
     group: g,
     screws: { L: screw(0), N: screw(1), PE: screw(2), VM1: screw(3), VM2: screw(4), VP1: screw(5), VP2: screw(6) },
-    starIn: starEntries[0], starOut: starEntries.slice(1, 7),
   };
 }
 
@@ -203,9 +195,8 @@ export function buildSwitchBox() {
   };
 }
 
-/* ------------------------------------------------------------------ inline blade-fuse holder + 5V splice
-   Local: holder centre on the bench, leads along x. The output lead ends in the 5V
-   distribution lever block (part of this group) — where the fused 5V branches out. */
+/* ------------------------------------------------------------------ inline blade-fuse holder
+   Local: holder centre on the bench, leads along x (in at −x, out at +x). */
 export function buildFuse() {
   const g = new THREE.Group();
   const L = mm(42), H = mm(12), D = mm(19);
@@ -219,20 +210,29 @@ export function buildFuse() {
   box(mm(19), mm(3.6), mm(5), fuseMat, 0, H + mm(1.0), 0, g);
   for (const sx of [-1, 1]) box(mm(3), mm(3), mm(0.8), metal(0xd9dde2), sx * mm(5.5), H - mm(1.2), 0, g);
   for (const sx of [-1, 1]) cyl(mm(2.6), mm(3.2), mm(6), body, sx * (L / 2 + mm(2)), H / 2, 0, g, 16).rotation.z = Math.PI / 2;
-  const block = buildLeverBlock(8, 0xe58a2c);
-  block.group.position.set(mm(48), 0, mm(-26));
-  g.add(block.group); block.group.updateMatrix();
-  const entries = block.entries.map(e => ({ p: e.p.clone().applyMatrix4(block.group.matrix), d: e.d.clone().applyEuler(block.group.rotation) }));
   return {
     group: g,
     in:  { p: V(-(L / 2 + mm(5)), H / 2, 0), d: V(-1, 0, 0) },
-    leadOut: { p: V(L / 2 + mm(5), H / 2, 0), d: V(1, 0, 0) },
-    blockIn: entries[0], out: entries.slice(1, 7),
+    out: { p: V(L / 2 + mm(5), H / 2, 0), d: V(1, 0, 0) },
   };
 }
 
+/* ------------------------------------------------------------------ 5V / GND distribution
+   Two 8-way lever blocks side by side, openings facing −z: GND (grey levers) at −x — the GND
+   star point — and 5V (orange levers) at +x. Local frame: the centre of the pair on the bench.
+   gnd[i] / v5[i]: entry i from left (−x) to right (+x); gnd[7] and v5[0] are the inner ends. */
+export function buildDistribution() {
+  const g = new THREE.Group();
+  const side = (lever, sx) => {
+    const b = buildLeverBlock(8, lever);
+    b.group.position.x = sx * (b.size.x / 2 + mm(0.3)); g.add(b.group);
+    return b.entries.map(e => ({ p: e.p.clone().add(b.group.position), d: e.d.clone() }));
+  };
+  return { group: g, gnd: side(0x3a3d44, -1), v5: side(0xe58a2c, 1) };
+}
+
 /* ------------------------------------------------------------------ 1000 µF / 16 V electrolytic (radial)
-   Local: bottom centre (on the perfboard). Legs: − (stripe side) at −x, + at +x. */
+   Local: bottom centre, axis +y. Legs: − (stripe side) at −x, + at +x. */
 export function buildCapacitor() {
   const g = new THREE.Group();
   const r = mm(5), h = mm(20);
@@ -250,7 +250,7 @@ export function buildCapacitor() {
 }
 
 /* ------------------------------------------------------------------ 330 Ω resistor (orange-orange-brown-gold)
-   Local: lies along x on the board; legs bent down into the holes at ±mm(5.08). */
+   Local: lies along x on the breadboard; legs bent down into the holes at ±mm(5.08) (4 columns apart). */
 export function buildResistor() {
   const g = new THREE.Group();
   const r = mm(1.2), y = mm(2.0);
@@ -270,31 +270,6 @@ export function buildResistor() {
     cyl(mm(0.3), mm(0.3), y, leg, sx * mm(5.08), y / 2, 0, g, 6);
   }
   return { group: g, a: V(-mm(5.08), 0, 0), b: V(mm(5.08), 0, 0) };
-}
-
-/* ------------------------------------------------------------------ rig input board (perfboard + screw terminal)
-   Local: board centre, y = 0 its underside. Terminal block (5V, GND, DATA) on the +z edge,
-   wire entries facing +z. Holes at a 2.54 mm grid: pad(ix, iz) -> local point on the top. */
-export function buildInputBoard() {
-  const g = new THREE.Group();
-  const W = mm(34), D = mm(24), T = mm(1.6);
-  const side = std(0x2b4f31, 0.6);
-  mesh(new THREE.BoxGeometry(W, T, D), [side, side, std(0xffffff, 0.5, 0, { map: TX.perfboardTexture() }), side, side, side], 0, T / 2, 0, g);
-  const pad = (ix, iz) => V(mm(ix * 2.54), T, mm(iz * 2.54));
-  // 3-way 5.08 mm screw terminal (green), screws on top, openings facing +z
-  const tbMat = std(0x2e8b47, 0.5), head = metal(0xc0c5cc, 0.3);
-  const tbZ = D / 2 - mm(4.2);
-  box(mm(15.5), mm(10), mm(8.2), tbMat, mm(-2.54), T + mm(5), tbZ, g);
-  const entries = [];
-  for (let i = 0; i < 3; i++) {
-    const x = mm(-2.54 + (i - 1) * 5.08);
-    cyl(mm(1.8), mm(1.8), mm(0.8), head, x, T + mm(10.2), tbZ - mm(0.8), g, 16);
-    box(mm(3.2), mm(3.2), mm(0.4), std(0x0e130f, 0.6), x, T + mm(4), tbZ + mm(4.15), g).castShadow = false;
-    entries.push({ p: V(x, T + mm(4), tbZ + mm(4.4)), d: V(0, 0, 1) });
-  }
-  // the clamp that holds the board on the rod
-  box(mm(8), mm(6), mm(9), std(0x1c1e22, 0.5), 0, -mm(3), -D / 2 - mm(3.5), g);
-  return { group: g, pad, entries, size: V(W, T, D) };
 }
 
 /* ------------------------------------------------------------------ wireless gamepad (DualShock-4 style)
