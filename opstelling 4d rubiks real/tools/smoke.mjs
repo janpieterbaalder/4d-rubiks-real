@@ -22,7 +22,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { geometryAudit, breadboardNets } from './bench-audit.mjs';
+import { geometryAudit, wireOverlaps, breadboardNets } from './bench-audit.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const shotIdx = process.argv.indexOf('--shot');
@@ -89,22 +89,34 @@ try {
   // top or the rig frame — see tools/bench-audit.mjs
   const hits = await page.evaluate(geometryAudit);
   ok('geen draad door onderdelen, breadboard, mat, werkbank of rig-frame', hits.length === 0, hits.slice(0, 3).join(' | '));
+  const crossings = await page.evaluate(wireOverlaps);
+  ok('geen draad door een andere draad, draadbrug of kabelbinder', crossings.length === 0, crossings.slice(0, 3).join(' | '));
   // electrical: every pin / leg / wire end in the right breadboard strip (printed column numbers),
   // and nothing else shares a strip
   const EXPECT = {
     'achter-20': ['ESP32 5V', 'draad dist.5V>esp.5Vin'],
     'achter-24': ['ESP32 IO13', 'draad esp.D13>lvl.in'],
     'achter-25': ['ESP32 GND', 'draad dist.GND>esp.GNDin'],
-    'achter-44': ['74AHCT125 7 GND', 'draad dist.GND>lvl.GND', 'jumper 1OE-GND'],
+    'achter-44': ['74AHCT125 7 GND', 'draad dist.GND>lvl.GND', 'jumper 1OE-GND', 'jumper 2A-GND', 'jumper 2OE-GND'],
+    'achter-46': ['74AHCT125 5 2A', 'jumper 2A-GND'],
+    'achter-47': ['74AHCT125 4 2OE', 'jumper 2OE-GND'],
     'achter-48': ['74AHCT125 3 1Y', '330Ω poot 1'],
     'achter-49': ['74AHCT125 2 1A', 'draad esp.D13>lvl.in'],
     'achter-50': ['74AHCT125 1 1OE', 'jumper 1OE-GND'],
-    'voor-50': ['74AHCT125 14 VCC', 'draad dist.5V>lvl.VCC'],
+    'voor-45': ['74AHCT125 9 3A', 'jumper 3A-3OE'],
+    'voor-46': ['74AHCT125 10 3OE', 'jumper 3OE-5V', 'jumper 3A-3OE'],
+    'voor-48': ['74AHCT125 12 4A', 'jumper 4A-5V'],
+    'voor-49': ['74AHCT125 13 4OE', 'jumper 4OE-5V'],
+    'voor-50': ['74AHCT125 14 VCC', 'draad dist.5V>lvl.VCC', 'jumper 3OE-5V', 'jumper 4A-5V', 'jumper 4OE-5V'],
     'achter-52': ['330Ω poot 2', 'draad res.out>rig.DIN'],
   };
   const nets = await page.evaluate(breadboardNets);
   const shared = Object.entries(nets.strips).filter(([, m]) => m.length > 1);
   const same = (a, b) => [...a].sort().join('|') === [...b].sort().join('|');
+  // datasheet: no 74AHCT125 input may float — every input shares its strip with a wire, jumper or link
+  const floating = ['1 1OE', '2 1A', '4 2OE', '5 2A', '9 3A', '10 3OE', '12 4A', '13 4OE'].map(n => '74AHCT125 ' + n)
+    .filter(pin => !Object.values(nets.strips).some(m => m.includes(pin) && m.length > 1));
+  ok('levelshifter: geen zwevende ingang (1OE…4A vast aan GND, 5V of de data)', floating.length === 0, floating.join(', '));
   ok('breadboard: elke pin, poot en draad in de juiste strook (ESP32-DevKitC V4, 74AHCT125)',
     nets.errors.length === 0 && shared.length === Object.keys(EXPECT).length && shared.every(([k, m]) => EXPECT[k] && same(m, EXPECT[k])),
     [...nets.errors, ...shared.filter(([k, m]) => !EXPECT[k] || !same(m, EXPECT[k])).map(([k, m]) => `${k}: ${m.join(' + ')}`)].slice(0, 3).join(' | '));

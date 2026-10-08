@@ -85,8 +85,15 @@ voeding. "Zekering `out`" en "Voeding **GND**" hieronder betekenen dus: via die 
 
 > De 74AHCT125 is een quad-buffer met per kanaal een **enable** (`1OE`, actief-laag): koppel
 > `1OE` aan **GND** zodat buffer 1 altijd doorgeeft. Eén kanaal volstaat voor de datalijn. Laat de
-> ongebruikte ingangen niet zweven (datasheet): `2OE`/`3OE`/`4OE` aan 5V (die kanalen uit) en
-> `2A`/`3A`/`4A` aan GND.
+> ongebruikte ingangen niet zweven: de datasheet eist dat elke ongebruikte ingang vast op VCC of GND
+> ligt. Op het breadboard het kortst met zes draadbruggen (zie de tabel hieronder): `2OE` en `2A` aan
+> **GND** (kanaal 2 staat aan, uitgang `2Y` is laag en blijft onaangesloten), `3OE`, `3A`, `4OE` en
+> `4A` aan **5V** (kanalen 3 en 4 uit).
+>
+> **Oriëntatie:** zet de chip op de **inkeping en het pin-1-stipje**, niet op de leesrichting van de
+> opdruk. Bij een DIP-chip leest de opdruk normaal rechtop met de inkeping links; hier zit de inkeping
+> rechts (kolom 50), dus vanaf de voorkant staat de tekst ondersteboven. 180° gedraaid komt 5V op pin 7
+> (GND) en GND op pin 14 (VCC): de chip wordt dan omgekeerd gevoed.
 
 ### Buffercondensator (1000µF over 5V/GND, waar de led-stroom vertrekt)
 | Van | Naar | Kleur | Opmerking |
@@ -112,10 +119,16 @@ voeding. "Zekering `out`" en "Voeding **GND**" hieronder betekenen dus: via die 
 > | 🔴 5V-draad naar de ESP32 | **20j** | J2-19 **5V** |
 > | 🟡 jumper GPIO13 → 1A | **24j** → **49h** | J2-15 **IO13** → pin 2 **1A** |
 > | ⚫ GND-draad naar de ESP32 | **25j** | J2-14 **GND** |
-> | 74AHCT125 (inkeping rechts) | pin 1–7 in rij **f**, kolom 50 → 44; pin 8–14 in rij **e**, kolom 44 → 50 | — |
+> | 74AHCT125 (inkeping + stip naar kolom 50) | pin 1–7 in rij **f**, kolom 50 → 44; pin 8–14 in rij **e**, kolom 44 → 50 | — |
 > | ⚫ jumper 1OE → GND | **50g** → **44g** | pin 1 **1OE** → pin 7 **GND** |
 > | ⚫ GND-draad naar de levelshifter | **44j** | pin 7 **GND** |
 > | 🔴 5V-draad naar de levelshifter | **50c** | pin 14 **VCC** |
+> | ⚫ draadbrug 2A → GND | **46h** → **44h** | pin 5 **2A** → pin 7 **GND** |
+> | ⚫ draadbrug 2OE → GND | **47i** → **44i** | pin 4 **2OE** → pin 7 **GND** |
+> | 🔴 draadbrug 3OE → 5V | **46a** → **50a** | pin 10 **3OE** → pin 14 **VCC** |
+> | 🔴 draadbrug 3A → 3OE | **45c** → **46c** | pin 9 **3A** → pin 10 (dus 5V) |
+> | 🔴 draadbrug 4A → 5V | **48b** → **50b** | pin 12 **4A** → pin 14 **VCC** |
+> | 🔴 draadbrug 4OE → 5V | **49d** → **50d** | pin 13 **4OE** → pin 14 **VCC** |
 > | 330Ω | **48j** → **52j** | pin 3 **1Y** → vrije kolom 52 |
 > | 🟠 datadraad naar led #0 | **52h** | 330Ω-uitgang |
 >

@@ -7,6 +7,9 @@
                     breadboard, every dupont housing, the ESD mat, the bench top and the rig frame
                     (pole, six rods, foot). Near its own ends a wire may enter the part it plugs
                     into; in a breadboard hole only the hole itself. Returns a list of collisions.
+   wireOverlaps()   every wire against every other wire, the decorative links / jumpers and the cable
+                    ties: two wires may touch, never pass through each other (only the three mains
+                    cores where they enter their sheath). Returns a list of overlaps.
    breadboardNets() which breadboard strip every ESP32 pin, 74AHCT125 leg, 330Ω leg and wire end
                     sits in, read from the 3D geometry, with the pin names of the ESP32-DevKitC V4
                     (J2/J3) and the 74AHCT125 datasheet. Returns { strips, errors }.
@@ -80,6 +83,43 @@ export function geometryAudit() {
   return out;
 }
 
+export function wireOverlaps() {
+  const B = window.__bench, scene = B.stage.scene, Vec3 = B.bbBox.min.constructor, tubes = [];
+  for (const w of B.wires) if (w.type !== 'bt') tubes.push({ key: w.conn.slice(0, 4).join(' '), c: w.curve, r: w.mesh.geometry.parameters.radius });
+  scene.traverse(o => {
+    if (!o.isMesh) return;
+    if (o.userData.deco) tubes.push({ key: o.userData.label ? 'jumper ' + o.userData.label : 'decoratief ' + o.userData.deco,
+      c: o.geometry.parameters.path, r: o.geometry.parameters.radius, group: o.userData.deco === 'mains' ? 'mains' : null });
+    const t = o.userData.tie;                       // a cable tie: an ellipse of points
+    if (t) tubes.push({ key: 'kabelbinder y=' + t.y.toFixed(2), r: t.r, pts: Array.from({ length: 400 }, (_, k) =>
+      new Vec3(t.cx + t.rx * Math.cos(k / 400 * Math.PI * 2), t.y, t.cz + t.rz * Math.sin(k / 400 * Math.PI * 2))) });
+  });
+  const S = 0.008, cell = 0.12, grid = new Map(), pts = [];
+  tubes.forEach((t, ti) => {
+    const list = t.pts || (() => { const L = t.c.getLength(), N = Math.ceil(L / S); return Array.from({ length: N + 1 }, (_, i) => t.c.getPointAt(i / N)); })();
+    for (const p of list) {
+      const k = `${Math.floor(p.x / cell)},${Math.floor(p.y / cell)},${Math.floor(p.z / cell)}`, e = { ti, p };
+      pts.push(e); (grid.get(k) || grid.set(k, []).get(k)).push(e);
+    }
+  });
+  const worst = new Map();
+  for (const a of pts) {
+    const cx = Math.floor(a.p.x / cell), cy = Math.floor(a.p.y / cell), cz = Math.floor(a.p.z / cell);
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) {
+      for (const b of grid.get(`${cx + dx},${cy + dy},${cz + dz}`) || []) {
+        const ta = tubes[a.ti], tb = tubes[b.ti];
+        if (b.ti <= a.ti || (ta.group && ta.group === tb.group)) continue;
+        const depth = ta.r + tb.r - a.p.distanceTo(b.p);
+        if (depth > 0.0025) {                          // more than 0.1 mm into each other
+          const k = ta.key + ' × ' + tb.key, c = worst.get(k);
+          if (!c || depth > c.depth) worst.set(k, { depth, p: a.p });
+        }
+      }
+    }
+  }
+  return [...worst].map(([k, v]) => `${k}: ${(v.depth * 40).toFixed(2)} mm bij (${v.p.x.toFixed(2)}, ${v.p.y.toFixed(2)}, ${v.p.z.toFixed(2)})`);
+}
+
 export function breadboardNets() {
   const B = window.__bench, scene = B.stage.scene, bb = B.bbGroup;
   // Espressif ESP32-DevKitC V4 headers, pin 1 at the antenna end; 74AHCT125 (DIP-14) datasheet
@@ -114,6 +154,8 @@ export function breadboardNets() {
     if (tA && !Array.isArray(tA) && tA.hole) put(w.curve.getPoint(0), `draad ${key}`);
     if (tB && !Array.isArray(tB) && tB.hole) put(w.curve.getPoint(1), `draad ${key}`);
   }
-  scene.traverse(o => { if (o.isMesh && o.userData.deco === 'jumper') { const c = o.geometry.parameters.path; put(c.getPoint(0), 'jumper 1OE-GND'); put(c.getPoint(1), 'jumper 1OE-GND'); } });
+  scene.traverse(o => { if (o.isMesh && o.userData.deco === 'jumper') {          // the 1OE jumper and the wire links
+    const c = o.geometry.parameters.path, label = 'jumper ' + o.userData.label; put(c.getPoint(0), label); put(c.getPoint(1), label);
+  } });
   return { strips, errors };
 }
