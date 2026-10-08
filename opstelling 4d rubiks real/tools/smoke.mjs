@@ -145,7 +145,35 @@ try {
   await page.click('#acc-parts .acc-b button:has-text("Levelshifter")'); await settle();
   ok('onderdeel kiezen opent het infopaneel', !(await page.getAttribute('#info', 'class')).includes('hidden'));
   ok('infopaneel toont de aansluitingen', (await page.textContent('#info-body')).includes('Aansluiting'));
+  // scrolling panels: the × stays in reach, the menu scrolls instead of squeezing (and clipping) its sections
+  const closeInReach = (box, btn) => page.evaluate(([box, btn]) => {
+    const B = document.getElementById(box); B.scrollTop = B.scrollHeight;
+    const c = document.getElementById(btn).getBoundingClientRect(), b = B.getBoundingClientRect();
+    return B.scrollTop > 0 && c.top >= b.top - 0.5 && c.bottom <= b.bottom + 0.5
+      && document.elementFromPoint((c.left + c.right) / 2, (c.top + c.bottom) / 2)?.id === btn;
+  }, [box, btn]);
+  ok('infopaneel: × blijft in beeld en klikbaar na scrollen', await closeInReach('info', 'info-close'));
   await page.click('#info-close');
+  ok('menu: alle secties open → het menu scrolt, geen sectie samengeperst of afgeknipt', await B(() => {
+    const L = document.getElementById('left'), heads = [...L.querySelectorAll(':scope > .acc > .acc-h')];
+    const was = heads.map(h => h.parentElement.classList.contains('open'));
+    heads.forEach((h, i) => { if (!was[i]) h.click(); });
+    const whole = [...L.querySelectorAll(':scope > .acc')].every(a => a.scrollHeight <= a.clientHeight + 1);
+    L.scrollTop = L.scrollHeight;
+    const last = [...L.querySelectorAll('button, .leg, label')].pop().getBoundingClientRect();
+    const reach = last.bottom <= L.getBoundingClientRect().bottom + 0.5 && last.bottom <= innerHeight;
+    heads.forEach((h, i) => { if (!was[i]) h.click(); }); L.scrollTop = 0;
+    return whole && reach;
+  }));
+  const dist = () => B(() => window.__bench.camera.position.distanceTo(window.__bench.controls.target));
+  const d0 = await dist();
+  await B(() => document.querySelector('#labels .lbl').dispatchEvent(new WheelEvent('wheel',
+    { deltaY: 400, bubbles: true, cancelable: true, clientX: innerWidth / 2, clientY: innerHeight / 2 })));
+  await page.waitForTimeout(500);
+  ok('scrollwiel boven een label zoomt de camera (zoals boven de scène)', Math.abs((await dist()) - d0) > 1e-3);
+  await page.click('#about-tab');
+  ok('Over-paneel: × blijft in beeld en klikbaar na scrollen', await closeInReach('about', 'about-close'));
+  await page.click('#about-close');
 
   // view toggles + quality + power
   await page.click('#acc-view .acc-h');
@@ -195,15 +223,28 @@ try {
     await mp.tap('#menu button:has-text("Levelshifter")'); await msettle();
     ok(`${tag} onderdeel kiezen sluit het menu en toont info binnen beeld`,
       !(await shown(mp, '#left')) && !(await mp.getAttribute('#info', 'class')).includes('hidden') && await inView(mp, '#info'));
-    await mp.tap('#info-close');
-    await mp.tap('#md-pad');
-    ok(`${tag} Besturing toont de controller volledig binnen beeld`, await shown(mp, '#ps3') && await inView(mp, '#ps3 button'));
+    ok(`${tag} info-sheet: × blijft in beeld na scrollen`, await mp.evaluate(() => {
+      const I = document.getElementById('info'); I.scrollTop = I.scrollHeight;
+      const c = document.getElementById('info-close').getBoundingClientRect();
+      return I.scrollTop > 0 && c.top >= I.getBoundingClientRect().top - 0.5
+        && document.elementFromPoint((c.left + c.right) / 2, (c.top + c.bottom) / 2)?.id === 'info-close';
+    }));
+    await mp.tap('#md-pad');          // straight from the info sheet: it closes, nothing lies over the controller
+    ok(`${tag} Besturing toont de controller volledig binnen beeld, niet onder het info-sheet`, await shown(mp, '#ps3')
+      && await inView(mp, '#ps3 button') && (await mp.getAttribute('#info', 'class')).includes('hidden')
+      && await mp.evaluate(() => [...document.querySelectorAll('#ps3 button')].every(b => {
+        const r = b.getBoundingClientRect(); return b.contains(document.elementFromPoint((r.left + r.right) / 2, (r.top + r.bottom) / 2));
+      })));
     await mp.tap('#ps3 [data-mv="E"]'); await msettle();
     const mBefore = await MB(() => JSON.stringify(window.__bench.puzzle.pieces.map(p => p.cur)));
     await mp.tap('#ps3 [data-dir="1"]'); await mp.tap('#ps3 [data-plane="0"]'); await msettle();
     ok(`${tag} draaien met alleen tikken (▶ + Z)`, await MB(() => JSON.stringify(window.__bench.puzzle.pieces.map(p => p.cur))) !== mBefore);
     await mp.tap('#ps3 [data-act="undo"]'); await msettle();
     ok(`${tag} undo via tik`, await MB(() => JSON.stringify(window.__bench.puzzle.pieces.map(p => p.cur))) === mBefore);
+    await MB(() => window.__bench.select('esp')); await msettle();
+    ok(`${tag} onderdeel kiezen met de controller open: één sheet tegelijk`, !(await shown(mp, '#ps3'))
+      && !(await mp.getAttribute('#info', 'class')).includes('hidden'));
+    await mp.tap('#info-close');
     await mp.tap('#md-power');
     ok(`${tag} Aan/uit in het dock`, (await mp.textContent('#power-state b')) === 'UIT');
     await mp.tap('#md-power');

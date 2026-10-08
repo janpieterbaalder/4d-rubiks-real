@@ -55,10 +55,10 @@
   /* ---- right: info panel ---- */
   #info { position: fixed; left: 222px; top: 58px; width: 320px; z-index: 20;
     background: rgba(20,27,43,.94); border: 1px solid var(--line); border-radius: 12px;
-    padding: 14px 16px; max-height: calc(100vh - 330px); overflow: auto;
+    padding: 14px 16px; max-height: calc(100vh - 120px); overflow: auto;
     backdrop-filter: blur(8px); box-shadow: 0 10px 40px rgba(0,0,0,.45); }
   #info.hidden { display: none; }
-  #info h2 { margin: 0 0 2px; font-size: 17px; display: flex; align-items: center; gap: 9px; }
+  #info h2 { margin: 0 0 2px; padding-right: 24px; font-size: 17px; display: flex; align-items: center; gap: 9px; }
   #info h2 .dot { width: 13px; height: 13px; border-radius: 50%; flex: none; }
   #info .tag { color: var(--dim); font-size: 11.5px; margin: 0 0 10px; }
   #info p { margin: 8px 0; font-size: 13px; }
@@ -73,8 +73,11 @@
   #info .note { background: #221a0c; border: 1px solid #4a3a14; border-radius: 8px;
     padding: 8px 10px; font-size: 12px; color: #ffe6a6; margin-top: 10px; }
   #info .note.warn { background: #2a1414; border-color: #5a2222; color: #ffb3a8; }
-  #info .close { position: absolute; right: 10px; top: 10px; cursor: pointer;
-    color: var(--dim); border: none; background: none; font-size: 18px; line-height: 1; }
+  /* the × stays in the top corner while the panel scrolls: sticky (an absolute child of a scroll box
+     scrolls away with the text); the negative bottom margin lets the title start beside it */
+  #info .close { position: sticky; top: 0; z-index: 1; display: block; width: 28px; height: 28px; padding: 0;
+    margin: -8px -10px -20px auto; cursor: pointer; color: var(--dim); border: none; border-radius: 8px;
+    background: rgba(20,27,43,.94); font-size: 18px; line-height: 1; }
   #info .close:hover { color: var(--ink); }
   /* "Over" overlay — project info for live (GitHub Pages) visitors */
   #about { position: fixed; left: 50%; top: 60px; transform: translateX(-50%);
@@ -82,7 +85,7 @@
     background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
     padding: 18px 22px 20px; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
   #about.hidden { display: none; }
-  #about h2 { margin: 0 0 4px; font-size: 18px; }
+  #about h2 { margin: 0 0 4px; padding-right: 24px; font-size: 18px; }
   #about .sub { color: var(--dim); font-size: 12px; margin: 0 0 12px; }
   #about h3 { margin: 14px 0 4px; font-size: 11px; text-transform: uppercase;
     letter-spacing: .6px; color: var(--accent); }
@@ -91,8 +94,9 @@
   #about a { color: var(--accent); }
   #about kbd { background: #0c1322; border: 1px solid var(--line); border-bottom-width: 2px;
     border-radius: 5px; padding: 0 5px; font-size: 11px; color: var(--dim); }
-  #about .close { position: absolute; right: 12px; top: 9px; cursor: pointer; background: none;
-    border: none; color: var(--dim); font-size: 22px; line-height: 1; }
+  #about .close { position: sticky; top: 0; z-index: 1; display: block; width: 32px; height: 32px; padding: 0;
+    margin: -12px -16px -20px auto; cursor: pointer; border: none; border-radius: 8px;
+    background: var(--panel); color: var(--dim); font-size: 22px; line-height: 1; }
   #about .close:hover { color: var(--ink); }
 
   /* ---- floating 3D labels ---- */
@@ -131,7 +135,7 @@
   #left { position: fixed; left: 14px; top: 58px; width: 196px; z-index: 20;
     display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 72px); overflow-y: auto; }
   .acc { background: rgba(22,29,46,.9); border: 1px solid var(--line); border-radius: 12px;
-    overflow: hidden; backdrop-filter: blur(6px); }
+    overflow: hidden; backdrop-filter: blur(6px); flex: none; }   /* no shrinking: #left scrolls instead */
   .acc > .acc-h { width: 100%; display: flex; align-items: center; cursor: pointer; font: inherit;
     background: var(--panel); color: var(--ink); border: none; padding: 9px 11px;
     font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
@@ -243,19 +247,21 @@
       width: auto; bottom: var(--dock-top); max-height: min(62vh, calc(100vh - 150px));
       max-height: min(62dvh, calc(100dvh - 150px)); z-index: 32; overscroll-behavior: contain; }
     body.m-menu #left { display: flex; }
-    #left .acc { flex: none; }
     .acc > .acc-h { padding: 12px 12px; font-size: 11px; }
     #menu button, .acc-b button, .acc-b label.tg { padding: 10px 11px; font-size: 13.5px; }
 
     /* part info -> bottom sheet */
     #info { left: calc(var(--sal) + 8px); right: calc(var(--sar) + 8px); width: auto; top: auto;
       bottom: var(--dock-top); max-height: 46vh; max-height: 46dvh; z-index: 33; overscroll-behavior: contain; }
-    #info .close { font-size: 24px; padding: 4px 8px; right: 4px; top: 4px; }
+    #info .close { font-size: 24px; width: 40px; height: 40px; margin: -10px -12px -30px auto; }
+    #info h2 { padding-right: 32px; }
 
     #about { left: calc(var(--sal) + 8px); right: calc(var(--sar) + 8px); width: auto; transform: none;
       top: calc(var(--sat) + 8px); max-height: calc(100vh - var(--dock-top) - var(--sat) - 16px);
-      max-height: calc(100dvh - var(--dock-top) - var(--sat) - 16px); z-index: 40; padding: 16px 16px 18px; }
-    #about .close { font-size: 26px; padding: 4px 8px; right: 4px; top: 4px; }
+      max-height: calc(100dvh - var(--dock-top) - var(--sat) - 16px); z-index: 40; padding: 16px 16px 18px;
+      overscroll-behavior: contain; }
+    #about .close { font-size: 26px; width: 40px; height: 40px; margin: -12px -12px -28px auto; }
+    #about h2 { padding-right: 32px; }
 
     /* the controller: hidden until "Besturing" is tapped, then docked above the dock */
     #ps3 { display: none; top: auto; right: auto; left: 50%; transform: translateX(-50%);
@@ -493,7 +499,7 @@
       if (close && panel) close.addEventListener('click', function () { panel.classList.add('hidden'); });
     })();
 
-    // PHONE dock: one sheet at a time (menu or controller); a part's info or "Over" closes the menu
+    // PHONE dock: one sheet at a time (menu, controller or a part's info); "Over" closes them
     (function () {
       var body = document.body, $ = function (id) { return document.getElementById(id); };
       var bMenu = $('md-menu'), bPad = $('md-pad'), bPow = $('md-power');
@@ -508,7 +514,7 @@
         body.classList.remove('m-menu', 'm-pad');
         if (open) body.classList.add(name);
         if (open) $('about').classList.add('hidden');
-        if (open && name === 'm-menu') $('info-close').click();
+        if (open) $('info-close').click();            // the info sheet would lie over it
         sync();
       }
       bMenu.addEventListener('click', function () { sheet('m-menu'); });
@@ -521,6 +527,10 @@
       });
       $('about-tab').addEventListener('click', function () { body.classList.remove('m-menu', 'm-pad'); sync(); });
       new MutationObserver(sync).observe($('power-state'), { subtree: true, childList: true, characterData: true });
+      // a part's info, however it was picked (menu, label, the scene), closes the open sheet
+      new MutationObserver(function () {
+        if (!$('info').classList.contains('hidden')) { body.classList.remove('m-menu', 'm-pad'); sync(); }
+      }).observe($('info'), { attributes: true, attributeFilter: ['class'] });
     })();
   </script>
 </body>

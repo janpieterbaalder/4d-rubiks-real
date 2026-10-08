@@ -1409,6 +1409,8 @@ for (const id of Object.keys(INFO)) {
   d.onclick = () => select(id, false);
   elLabels.appendChild(d); labelEls[id] = d;
 }
+// a wheel turn over a label zooms like over the scene itself (the labels lie on top of the canvas)
+elLabels.addEventListener('wheel', e => { e.preventDefault(); canvas.dispatchEvent(new WheelEvent('wheel', e)); }, { passive: false });
 
 function wiringRowsFor(id) {
   const rows = [];
